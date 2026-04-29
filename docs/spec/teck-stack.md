@@ -1,0 +1,143 @@
+# Tech Stack
+
+注: ファイル名はユーザー指定に合わせて `teck-stack.md` とする。
+
+## 参照ルール
+
+このPJでmisskey.io botの実行環境、常駐方式、スケジューリング、Misskey API / Streaming APIに関する判断を行う場合は、必ずこのファイルを参照する。
+
+新しい参考資料やリンクを確認した場合は、このファイルに追記してから判断に使う。
+
+## 2026-04-29 時点の初期判断
+
+### 結論
+
+- GitHub Actionsだけでも、定期投稿・定期チェック型のbotなら開始できる。
+- misskey.io上で常時オンライン表示を狙う、またはリアルタイム返信・通知監視をするなら、GitHub ActionsやVercel Functionsだけでは不向き。
+- 常駐botにする場合は、WebSocketを維持できる常時実行環境を別途用意するのが自然。
+
+### 候補
+
+1. GitHub Actions
+   - 定期実行、手動実行、CI/CD、軽いバッチ投稿向き。
+   - 常駐WebSocketには不向き。
+2. Vercel Cron + Vercel Functions
+   - HTTP endpointを定期的に叩く用途向き。
+   - 関数実行時間の上限があるため、常時接続botには不向き。
+3. 常時実行環境
+   - WebSocket接続を維持するbot本体向き。
+   - 候補: VPS、Fly.io、Render worker、Railway、Cloud Run jobs/services、self-hosted runnerなど。
+
+## 参考リンク
+
+- Misskey API overview: https://misskey-hub.net/en/docs/for-developers/api/
+  - Misskey APIはbotなどのapplication開発に使える。
+  - Streaming APIによりリアルタイムapplicationを作れる。
+- Misskey Reactions: https://misskey-hub.net/en/docs/for-users/features/reaction/
+  - 投稿時に受け付けるリアクション種別を制限できる。
+  - `Likes only` により❤のみ受け付けられる。
+- Misskey Streaming API: https://misskey-hub.net/en/docs/for-developers/api/streaming/
+  - Streaming APIはMisskeyサーバーへWebSocket接続する。
+  - 接続URL形式は `wss://{host}/streaming?i={token}`。
+  - タイムラインや通知などのイベントを受けるには、WebSocket接続後にchannelへ接続する。
+- misskey.io API docs: https://api-doc.misskey.io/
+  - `notes/create`、`i/notifications`、`notes/mentions` などのendpoint確認に使う。
+- misskey.io `notes/create`: https://api-doc.misskey.io/api-7254018
+  - `notes/create` は `write:notes` permissionが必要。
+  - noteレスポンスに `reactionAcceptance` が存在する。
+- GitHub Actions limits: https://docs.github.com/en/enterprise-cloud@latest/actions/reference/limits
+  - GitHub-hosted runnerのjob実行時間は最大6時間。
+  - self-hosted runnerのjob実行時間は最大5日。
+- Vercel Functions limits: https://vercel.com/docs/functions/limitations
+  - Vercel Functionsには実行時間上限がある。
+  - Hobbyは最大300秒、Pro/Enterpriseは最大800秒。
+- Vercel maximum duration config: https://vercel.com/docs/functions/configuring-functions/duration
+  - `maxDuration` で関数ごとの実行時間上限を設定できる。
+- Vercel Cron Jobs: https://vercel.com/docs/cron-jobs
+  - CronはVercel FunctionsへのHTTP GETで実行される。
+  - Cron式のtimezoneはUTC。
+- Vercel Managing Cron Jobs: https://vercel.com/docs/cron-jobs/manage-cron-jobs
+  - `CRON_SECRET` による保護が推奨される。
+  - Cronのduration limitはVercel Functionsと同じ。
+  - 重複実行や並行実行に備えてlockと冪等性が必要。
+  - HobbyのCronは1日1回まで、指定時刻の時間内のどこかで起動される。
+
+## 未決事項
+
+- 常時オンライン表示がMisskey上でどの条件により維持されるか。
+- botが必要とするリアルタイム性。
+- 投稿頻度、返信頻度、通知監視の要否。
+- DBや永続状態の要否。
+- デプロイ先の無料枠、有料許容、運用負荷。
+
+## 2026-04-29 追記: リアルタイム性とローカル常駐前提
+
+### ユーザー前提
+
+- 10秒間隔でリプライの有無をチェックする機能と、30分に1回の投稿時だけ起動する機能で、月額500円程度のような明確なコスト差が出ないなら前者を優先したい。
+- ユーザーのPCは常時起動しているため、そのPCをホストとしてbotを動かし続けられる見込みがある。
+
+### 判断
+
+- 常時起動PCを使えるなら、10秒間隔pollingまたはStreaming API常時接続の実験は現実的。
+- GitHub ActionsやVercel Functionsで10秒間隔pollingを行うのは不向き。実行回数、実行時間、スケジューラ精度、規約上の使い方の面で無理が出やすい。
+- ローカルPC常駐ならクラウド利用料は基本的に増えないが、PCの電気代、再起動時の復旧、ネットワーク断、secret管理、ログ管理は自前で見る必要がある。
+- 10秒間隔pollingより、Misskey Streaming APIでWebSocket接続を維持してイベントを受ける方が、実装できるなら自然。pollingはMVPまたはfallbackとして扱う。
+
+### 推奨する段階
+
+1. ローカルPC上で常駐botを動かす。
+2. まずは30分投稿 + 10秒間隔のメンション/リプライ確認で実験する。
+3. 安定したらStreaming APIへ移行し、pollingはfallbackにする。
+4. 外部公開や高可用性が必要になったら、VPS / worker系PaaSへ移す。
+
+### ローカル常駐で必要な設計
+
+- プロセス監視: 落ちたら自動再起動する。
+- 起動方法: Windowsならタスクスケジューラ、サービス化、Docker Desktop、pm2などを候補にする。
+- secret管理: `.env` はローカルに置き、Gitには入れない。
+- 状態管理: 最後に処理したnotification/note idを保存し、再起動後の重複返信を避ける。
+- rate limit対策: polling間隔、最大処理件数、バックオフ、重複防止を持つ。
+- ログ: 投稿、返信、skip理由、API error、再接続を記録する。
+
+## 2026-04-29 追記: DB利用方針
+
+### ユーザー前提
+
+- DBは必要。
+- soulで性格を決めるだけでなく、misskey.io上の投稿や、キャラクターが疑似的に生活で体験したことを記録したい。
+- タイムラインや設定ファイルとは別の場所に、体験ログを永続化する必要がある。
+- 30分間隔の別バッチで、タイムラインからランダムまたは別途定める法則に従って元ノートを拾い、キャラクターが体験したこととして扱う。
+- 体験ログは後続投稿に反映する。
+
+### 判断
+
+- ローカルPC常駐を前提にするなら、初期DBはSQLiteが最も扱いやすい。
+- SQLiteは単一ファイルで運用でき、ローカルbotの記憶、処理済みID、疑似生活ログ、投稿履歴の保存に向く。
+- 将来クラウド常駐へ移す場合は、PostgreSQL系に移行できるよう、DBアクセス層を薄く分離しておく。
+
+### 初期DB候補
+
+1. SQLite
+   - 初期推奨。
+   - ローカル常駐、低コスト、単一プロセス運用と相性がよい。
+2. PostgreSQL
+   - クラウド移行、複数worker、分析用途が強くなった段階で検討。
+3. JSONファイル
+   - 一時試作には使えるが、疑似生活ログや重複防止を扱うなら早期にSQLiteへ移す。
+
+### 初期テーブル候補
+
+- `notes_seen`: 取得済み・処理済みMisskey note id。
+- `notifications_seen`: 処理済みnotification id。
+- `experience_logs`: キャラクターが疑似的に体験した出来事。
+- `posts`: bot自身の投稿履歴。
+- `reply_logs`: bot自身の返信履歴。
+- `source_notes`: 疑似体験の元にした外部noteの最小限メタデータ。
+- `memory_atoms`: 継続的に参照する短い記憶単位。
+
+### 注意
+
+- 他者の投稿本文を長期保存・再利用する場合は、引用、要約、公開範囲、削除済み投稿への追従に注意する。
+- 体験ログは「元ノートをコピーする」のではなく、「キャラクターが受け取った刺激や出来事として抽象化する」方針が安全。
+- 投稿生成時は、元ノートの個人情報や文面をそのまま再出力しない。
