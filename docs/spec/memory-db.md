@@ -17,7 +17,7 @@
 
 ## 疑似生活バッチ
 
-30分間隔で、投稿処理とは別のバッチを走らせる。
+30分間隔を目安に、投稿処理とは別の候補収集バッチを走らせる。
 
 流れ:
 
@@ -27,7 +27,7 @@
 4. `experience_candidates` に保存する。
 5. この時点では、まだキャラクターが実際に体験したこととして記憶しない。
 
-30分ごとの投稿生成時に、候補の中から実行する体験を選ぶ。
+5分ごとの投稿抽選で体験投稿が選ばれた時に、候補の中から実行する体験を選ぶ。
 
 1. `experience_candidates` から未使用候補を選ぶ。
 2. botが「今日はこれをした」とノートする。
@@ -176,6 +176,8 @@ bot自身の返信履歴。
 
 ユーザーが、自分の投稿をbotの疑似体験の参考にしてよいと許可した状態。
 
+同意の正本はピン留めノートへの❤リアクションとする。
+
 候補カラム:
 
 - `user_id`
@@ -183,24 +185,52 @@ bot自身の返信履歴。
 - `host`
 - `consent_status`
 - `request_note_id`
+- `pinned_consent_note_id`
 - `consented_reaction`
 - `consented_at`
 - `revoked_at`
+- `stopped_at`
+- `unfollowed_at`
 - `last_checked_at`
 
 ### `consent_requests`
 
-フォロー時に送った許可依頼ノート。
+フォロー時に送った、ピン留めノートへの案内記録。
 
 候補カラム:
 
 - `id`
 - `user_id`
 - `username`
-- `request_note_id`
+- `guide_note_id`
+- `pinned_consent_note_id`
 - `requested_at`
-- `reaction_acceptance`
 - `status`
+
+### `note_exp_history`
+
+自分のノート、ノートの元になった体験、ノートしていない体験を同じ系列で扱うための統合履歴案。
+
+既存の `tl_observations`、`experience_candidates`、`experience_logs` と統合するかは未決。
+
+候補カラム:
+
+- `id`
+- `kind`
+- `note_id`
+- `source_note_id`
+- `source_user_id`
+- `content_summary`
+- `exp_summary`
+- `status`
+- `created_at`
+- `posted_at`
+
+`kind` 候補:
+
+- `note`: 自分がノートした内容。
+- `note-exp`: ノート内容の元になった体験。
+- `exp`: ノートしていない体験。
 
 ### `experience_sources`
 
@@ -227,5 +257,7 @@ bot自身の返信履歴。
 - 抽象化された出来事、感情、印象として扱う。
 - 明示的に許可したユーザーの公開投稿を優先する。
 - 許可の取り消し導線を用意し、取り消し後は新規参照しない。
+- `/stop` は接触停止として扱い、リプライや引用RNを止める。
+- `/unfollow` はノート参照対象からの除外として扱う。
 - TL観測として扱う場合は、個人名、引用、元noteの文面再利用を避ける。
 - TL観測は「誰かがしていたこと」ではなく、「TLにそういう雰囲気があった」として抽象化する。

@@ -1,3 +1,3 @@
 # Candidate Reference Summary
 
-現時点で要約対象は未作成。
+- `bot-behavior-candidates.md`: `imp-wait.md` への回答から整理したBOT実装候補。
