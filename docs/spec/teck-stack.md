@@ -61,6 +61,11 @@
   - Cronのduration limitはVercel Functionsと同じ。
   - 重複実行や並行実行に備えてlockと冪等性が必要。
   - HobbyのCronは1日1回まで、指定時刻の時間内のどこかで起動される。
+- Misskey.io Terms: https://support.misskey.io/hc/ja/articles/6564530842767-%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84
+  - 自動投稿が主となるBotはBotフラグが必要。
+  - Bot管理者のmisskey.ioアカウントを概要欄またはピン留めなどに記載する必要がある。
+  - ユーザー操作によりリプライや公開投稿を行うBotは、レートリミットと不適切語フィルタが必要。
+  - 連続した公開投稿でタイムラインを埋めないこと。
 
 ## 未決事項
 
@@ -98,6 +103,7 @@
 - secret管理: `.env` はローカルに置き、Gitには入れない。
 - 状態管理: 最後に処理したnotification/note idを保存し、再起動後の重複返信を避ける。
 - rate limit対策: polling間隔、最大処理件数、バックオフ、重複防止を持つ。
+- misskey.io規約対策: Botフラグ、管理者アカウント明記、レートリミット、不適切語フィルタ、連続投稿回避を持つ。
 - ログ: 投稿、返信、skip理由、API error、再接続を記録する。
 
 ## 2026-04-29 追記: DB利用方針

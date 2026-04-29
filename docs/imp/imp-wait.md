@@ -17,11 +17,6 @@
   - リプライでURLを貼るか。
   - 両方使うか。
 - ピン留めノートへの❤を取り消された場合、許可取り消しとして扱えるか。
-- 「やめて」以外のオプトアウト文言をどこまで拾うか。
-- `/stop` と `/unfollow` のコマンド名を最終採用するか。
-:する。やめては反応しなくていい。
-- `/unfollow` がMisskey上のフォロー解除と誤解されないか。
-:いや、実際にフォロー解除する。
 
 ## 投稿スケジューリング
 
@@ -31,6 +26,49 @@
 - 1日あたり引用Renote回数上限の具体値。
 - 寝言を月2回程度にする確率設計。
 - 寝言の内容の安全範囲。
+
+## マスタ定義
+
+- `m_post_kind` の初期値。
+  - `morning`
+  - `night`
+  - `sleep_talk`
+  - `tl_observation`
+  - `experience`
+  - `normal`
+  - `reply`
+  - `reaction_note`
+- `m_rate_limit` の初期値。
+  - `notes_per_hour`: 5
+  - `notes_per_day`: 50
+  - `quote_renotes_per_day`: 5
+  - `user_triggered_posts_per_5min`: 5
+- `m_safety_rule` の初期ルール。
+  - CW
+  - NSFW
+  - 個人情報
+  - 病気
+  - 事故
+  - 揉め事
+  - 政治
+  - 医療
+  - 投資
+  - 成人向け
+  - 攻撃的内容
+- `m_command` の初期値。
+  - `/stop`
+  - `/unfollow`
+- `consent_status` の採用値。
+  - `pending`
+  - `consented`
+  - `stopped`
+  - `unfollowed`
+  - `revoked`
+- `experience_candidates.status` の採用値。
+  - `pending`
+  - `executed`
+  - `rejected`
+  - `expired`
 
 ## TL観測・体験候補
 
@@ -50,3 +88,7 @@
 - 体験投稿をどのくらい日記風にするか。
 - ユーザー名を出す時の温度感。
 - 許可依頼文と体験投稿文を、実際の稼働前にサンプル投稿で検証する。
+
+## 安全弁全般
+- 不適切語フィルタの初期辞書。
+- Bot管理者アカウントの実アカウント名。
