@@ -283,4 +283,54 @@ describe("probe", () => {
       await db.all("SELECT user_id, username, consent_status FROM experience_source_consents")
     ).toEqual([{ user_id: "u1", username: "alice", consent_status: "consented" }]);
   });
+
+  it("does not restore stopped users from an old heart reaction", async () => {
+    const db = await createTestDb();
+    await db.run(
+      `
+      INSERT INTO experience_source_consents (
+        user_id,
+        username,
+        consent_status,
+        stopped_at,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        'u1',
+        'alice',
+        'stopped',
+        '2026-05-01T00:01:00.000Z',
+        '2026-05-01T00:00:00.000Z',
+        '2026-05-01T00:01:00.000Z'
+      )
+      `
+    );
+    const client: MisskeyClient = {
+      getNotifications: vi.fn(),
+      createNote: vi.fn(),
+      createFollowing: vi.fn(),
+      deleteFollowing: vi.fn(),
+      getNoteReactions: vi.fn(async () => [
+        {
+          id: "r1",
+          createdAt: "2026-05-01T00:00:00.000Z",
+          type: "❤",
+          user: { id: "u1", username: "alice" }
+        }
+      ])
+    };
+
+    await handleConsentReactions({
+      db,
+      client,
+      logger: logger(),
+      pinnedConsentNoteId: "pinned",
+      at: "2026-05-01T00:02:00.000Z"
+    });
+
+    expect(
+      await db.get("SELECT user_id, username, consent_status FROM experience_source_consents")
+    ).toEqual({ user_id: "u1", username: "alice", consent_status: "stopped" });
+  });
 });

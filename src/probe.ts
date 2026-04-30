@@ -399,6 +399,41 @@ async function saveConsentReaction(options: {
   at: string;
   reaction: MisskeyReaction;
 }): Promise<void> {
+  const existing = await options.db.get<{
+    consent_status: string;
+    consented_reaction: string | null;
+  }>(
+    `
+    SELECT consent_status, consented_reaction
+    FROM experience_source_consents
+    WHERE user_id = @user_id
+    LIMIT 1
+    `,
+    { user_id: options.reaction.user.id }
+  );
+
+  if (existing?.consent_status === "consented") {
+    options.logger.debug("consentReaction.skip", {
+      reason: "already_consented",
+      userId: options.reaction.user.id,
+      username: options.reaction.user.username
+    });
+    return;
+  }
+
+  if (
+    existing?.consent_status === "stopped" ||
+    existing?.consent_status === "unfollowed" ||
+    existing?.consent_status === "revoked"
+  ) {
+    options.logger.info("consentReaction.skip", {
+      reason: existing.consent_status,
+      userId: options.reaction.user.id,
+      username: options.reaction.user.username
+    });
+    return;
+  }
+
   await options.db.run(
       `
       INSERT INTO experience_source_consents (

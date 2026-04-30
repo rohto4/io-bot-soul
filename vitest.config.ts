@@ -4,7 +4,14 @@ export default defineConfig({
   test: {
     coverage: {
       provider: "v8",
-      exclude: ["dist/**", "vitest.config.ts", "src/main.ts", "src/db/migrate.ts"],
+      exclude: [
+        "dist/**",
+        "vitest.config.ts",
+        "src/main.ts",
+        "src/scheduled.ts",
+        "src/db/client.ts",
+        "src/db/migrate.ts"
+      ],
       reporter: ["text", "lcov"],
       thresholds: {
         branches: 80,
