@@ -1,0 +1,11 @@
+services:
+  bot:
+    build: .
+    container_name: io-bot-soul
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./images:/app/images:ro

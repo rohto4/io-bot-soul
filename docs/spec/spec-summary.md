@@ -6,7 +6,8 @@
 - 投稿判定は5分間隔を基本にする。
 - 直前ノートからの経過時間に応じて投稿確率を上げる。
 - 30分周期の処理は、体験候補収集やTL観測の材料収集として扱う。
-- 通知・リプライ・リアクション確認は、10秒間隔pollingまたはMisskey Streaming APIで行う。
+- 通知・リプライ・リアクション確認は、MVPでは1分pollingで行う。
+- Misskey Streaming APIは、polling実装が安定した後の改善候補にする。
 - 初期DBはSQLiteを使う。
 - タイムライン由来の材料は、`tl_observations`、`experience_candidates`、`experience_logs` に分ける。
 - `tl_observations` は、個人を特定しないTL観測として扱う。許可は不要だが、安全判定は必須。
@@ -23,6 +24,7 @@
 - `teck-stack.md`: misskey.io botの実行環境、常駐方式、スケジューリング、Misskey API / Streaming APIに関する判断資料。
 - `memory-db.md`: 疑似生活ログ、記憶、処理済みID、投稿履歴を保存するDB方針。
 - `db-schema.md`: SQLiteの初期schema案。rate limit、同意、TL観測、体験候補、体験記憶、投稿履歴を定義。
+- `emotion-assets.md`: `images/` 配下のエモーション画像を投稿に添付するP1/P2仕様。
 - `consent-experience-strategy.md`: フォロワー同意に基づいて投稿を疑似生活体験へ変換する戦略。
   - TL観測として個人を特定せず「何々をしている人がいた、いいなー」と扱う場合は許可不要。ただし安全判定は必須。
 - `release-readiness.md`: 公開運用前の必須ゲートとリリース可否判断。

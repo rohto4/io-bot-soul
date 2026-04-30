@@ -1,0 +1,45 @@
+name: Scheduled Post Draw
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+concurrency:
+  group: scheduled-post-draw
+  cancel-in-progress: false
+
+jobs:
+  post-draw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MISSKEY_HOST: https://misskey.io
+      MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
+      PINNED_CONSENT_NOTE_ID: ${{ secrets.PINNED_CONSENT_NOTE_ID }}
+      ADMIN_ACCOUNT: "@unibell4"
+      DATABASE_PROVIDER: ${{ secrets.DATABASE_PROVIDER }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SQLITE_PATH: ./data/bot.sqlite
+      POLL_INTERVAL_SECONDS: 60
+      POST_DRAW_INTERVAL_SECONDS: 300
+      REPLY_PROBE_MAX_PER_POLL: 1
+      LOG_LEVEL: info
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run scheduled post draw
+        run: npm run scheduled:post-draw:prod

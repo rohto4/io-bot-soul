@@ -8,6 +8,8 @@
 
 logs/
 *.log
+coverage/
+data/
 
 node_modules/
 dist/

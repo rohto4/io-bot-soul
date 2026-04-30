@@ -45,6 +45,14 @@
 - misskey.io `notes/create`: https://api-doc.misskey.io/api-7254018
   - `notes/create` は `write:notes` permissionが必要。
   - noteレスポンスに `reactionAcceptance` が存在する。
+- misskey.io `i/notifications`: https://api-doc.misskey.io/api-7253978
+  - `read:notifications` permissionが必要。
+  - 通知、リプライ、リアクション確認の初期pollingに使う。
+- misskey.io `notes/reactions`: https://api-doc.misskey.io/api-7254030
+  - noteに付いたリアクション一覧の取得に使う。
+  - ピン留め同意ノートへの❤確認に使う。
+- Misskey access token docs: https://misskey-hub.net/en/docs/for-developers/api/token/
+  - API tokenはJSON bodyの `i` として渡す。
 - GitHub Actions limits: https://docs.github.com/en/enterprise-cloud@latest/actions/reference/limits
   - GitHub-hosted runnerのjob実行時間は最大6時間。
   - self-hosted runnerのjob実行時間は最大5日。
@@ -88,23 +96,40 @@
 - GitHub ActionsやVercel Functionsで10秒間隔pollingを行うのは不向き。実行回数、実行時間、スケジューラ精度、規約上の使い方の面で無理が出やすい。
 - ローカルPC常駐ならクラウド利用料は基本的に増えないが、PCの電気代、再起動時の復旧、ネットワーク断、secret管理、ログ管理は自前で見る必要がある。
 - 10秒間隔pollingより、Misskey Streaming APIでWebSocket接続を維持してイベントを受ける方が、実装できるなら自然。pollingはMVPまたはfallbackとして扱う。
+- ただしMVPでは実装を単純にするため、1分pollingを採用する。Streaming APIは改善候補に回す。
 
 ### 推奨する段階
 
 1. ローカルPC上で常駐botを動かす。
-2. まずは5分間隔の投稿抽選 + 10秒間隔のメンション/リプライ確認で実験する。
+2. まずは5分間隔の投稿抽選 + 1分間隔の通知/リプライ/リアクション確認で実験する。
 3. 安定したらStreaming APIへ移行し、pollingはfallbackにする。
 4. 外部公開や高可用性が必要になったら、VPS / worker系PaaSへ移す。
 
 ### ローカル常駐で必要な設計
 
 - プロセス監視: 落ちたら自動再起動する。
-- 起動方法: Windowsならタスクスケジューラ、サービス化、Docker Desktop、pm2などを候補にする。
+- 起動方法: 初期採用はDocker Desktop + Docker Compose。タスクスケジューラ、サービス化、pm2は代替候補に回す。
 - secret管理: `.env` はローカルに置き、Gitには入れない。
 - 状態管理: 最後に処理したnotification/note idを保存し、再起動後の重複返信を避ける。
 - rate limit対策: polling間隔、最大処理件数、バックオフ、重複防止を持つ。
 - misskey.io規約対策: Botフラグ、管理者アカウント明記、レートリミット、不適切語フィルタ、連続投稿回避を持つ。
 - ログ: 投稿、返信、skip理由、API error、再接続を記録する。
+
+## 2026-05-01 追記: Dockerローカル常駐採用
+
+### 判断
+
+- ユーザーPC上の常駐方式はDocker Composeを採用する。
+- タスクスケジューラー単体より、環境再現性、起動手順、将来のVPS移行が整理しやすい。
+- n8nはワークフロー管理には使えるが、このPJの初期実装ではDB更新、記憶、安全判定、投稿生成が密接なため、単一botプロセスの方が扱いやすい。
+
+### 運用方針
+
+- `compose.yaml` でbotサービスを定義する。
+- SQLite DB、ログ、画像素材はホスト側ディレクトリをマウントする。
+- `restart: unless-stopped` により、Docker Desktop起動後の復旧を狙う。
+- `.env` はGitに入れず、Misskey tokenやピン留め同意ノートIDを保持する。
+- 詳細手順は [Dockerローカル常駐ガイド](../guide/docker-local-run.md) を参照する。
 
 ## 2026-04-29 追記: DB利用方針
 
@@ -126,12 +151,28 @@
 ### 初期DB候補
 
 1. SQLite
-   - 初期推奨。
-   - ローカル常駐、低コスト、単一プロセス運用と相性がよい。
+   - 初期推奨だったが、GitHub Actionsとローカル常駐の状態共有には向かない。
+   - 現在はテストとfallback用に残す。
 2. PostgreSQL
-   - クラウド移行、複数worker、分析用途が強くなった段階で検討。
+   - NeonDBで採用。
+   - ローカルDocker常駐とGitHub Actionsの共有DBとして使う。
+   - 複数実行元から、処理済み通知、同意状態、投稿履歴、体験ログを共有できる。
 3. JSONファイル
    - 一時試作には使えるが、疑似生活ログや重複防止を扱うなら早期にSQLiteへ移す。
+
+## 2026-05-01 追記: Neon/Postgres採用
+
+### 判断
+
+- ローカルDocker常駐プロセスとGitHub Actionsの両方から同じ状態を参照するため、NeonDBを採用する。
+- 接続は `DATABASE_PROVIDER=postgres` と `DATABASE_URL` で制御する。
+- SQLiteはローカルfallbackとテスト用に残す。
+
+### 注意
+
+- GitHub Actions secretsには `DATABASE_PROVIDER`、`DATABASE_URL`、`MISSKEY_TOKEN`、`PINNED_CONSENT_NOTE_ID` を登録する。
+- Neonの接続文字列はpooled connection stringを優先する。
+- `pg` が `sslmode=require` に対して将来挙動変更予定の警告を出す。現時点では接続・migration・常駐pollingは成功している。
 
 ### 初期テーブル候補
 

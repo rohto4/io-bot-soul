@@ -1,8 +1,15 @@
 # DB Schema
 
-初期DBはSQLiteを使う。
+初期DBはSQLiteで開始したが、ローカルDocker常駐プロセスとGitHub Actionsの状態共有のため、Neon/Postgresへ移行する。
 
 このschemaは、ローカルPC常駐botのMVP実装に必要な最小構成とする。
+
+## 接続方針
+
+- `DATABASE_PROVIDER=postgres` の場合、`DATABASE_URL` でNeon/Postgresへ接続する。
+- `DATABASE_PROVIDER=sqlite` の場合、`SQLITE_PATH` でSQLiteへ接続する。
+- ローカルDockerとGitHub Actionsは、同じNeon `DATABASE_URL` を使うことで状態を共有する。
+- SQLiteはテストとfallback用に残す。
 
 ## 方針
 
@@ -207,6 +214,21 @@ CREATE TABLE posts (
 - `reply`
 - `reaction_note`
 
+### `post_assets`
+
+投稿に添付した画像の履歴。
+
+```sql
+CREATE TABLE post_assets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_note_id TEXT NOT NULL,
+  asset_key TEXT NOT NULL,
+  drive_file_id TEXT,
+  attached_at TEXT NOT NULL,
+  reason TEXT
+);
+```
+
 ### `reply_logs`
 
 返信履歴。
@@ -334,6 +356,25 @@ CREATE TABLE m_command (
 - `/stop`: リプライや引用RNなどの接触停止。
 - `/unfollow`: bot側から実際にフォロー解除し、ノート参照対象から除外。
 
+### `m_emotion_asset`
+
+投稿に添付する画像素材。
+
+```sql
+CREATE TABLE m_emotion_asset (
+  asset_key TEXT PRIMARY KEY,
+  file_path TEXT NOT NULL,
+  asset_type TEXT NOT NULL,
+  emotion TEXT,
+  post_kind TEXT,
+  event_tag TEXT,
+  priority INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  cooldown_hours INTEGER NOT NULL DEFAULT 24,
+  description TEXT
+);
+```
+
 ## Indexes
 
 ```sql
@@ -341,11 +382,19 @@ CREATE INDEX idx_source_notes_user ON source_notes(user_id);
 CREATE INDEX idx_candidates_status ON experience_candidates(status, picked_at);
 CREATE INDEX idx_logs_posted_note ON experience_logs(posted_note_id);
 CREATE INDEX idx_posts_kind_time ON posts(kind, posted_at);
+CREATE INDEX idx_post_assets_post ON post_assets(post_note_id);
 CREATE INDEX idx_observations_status ON tl_observations(status, observed_at);
 CREATE INDEX idx_rate_limit_time ON rate_limit_events(event_type, event_at);
 ```
 
+## `note_exp_history` の扱い
+
+MVPでは `note_exp_history` を物理テーブルとして採用しない。
+
+実装は `tl_observations`、`experience_candidates`、`experience_logs`、`posts` の分割テーブルで進める。
+
+`note_exp_history` は、あとから横断的に見るためのviewまたは集計層の候補名として残す。
+
 ## 未決
 
-- `note_exp_history` を採用して統合履歴にするか、上記の分割テーブルで進めるか。
 - safety判定をDB master中心にするか、コード定数中心にするか。

@@ -4,46 +4,35 @@
 
 実装候補として整理できたものは `docs/candi-ref/` に移す。
 
+## 実装前ブロッカー
+
+- misskey.io BotアカウントのAPI tokenを用意する。
+- ピン留め同意ノートを作成し、note idを設定値として用意する。
+- Botフラグを付ける。
+- 管理者アカウント `@unibell4` をプロフィールまたはピン留めノートに明記する。
+
 ## Misskey API / 実機確認
 
 - `notes/create` で❤のみリアクション受付を指定する具体的な値。
-- ピン留めノートへの❤リアクションをStreaming APIまたはpollingで安定して検知する方法。
-- Misskey Streaming APIでfollow / reaction / mentionをどう受けるか。
-
-## 同意導線
-
-- フォロー時にピン留めノートをどう案内するか。
-  - 引用Renoteにするか。
-  - リプライでURLを貼るか。
-  - 両方使うか。
-- ピン留めノートへの❤を取り消された場合、許可取り消しとして扱えるか。
+  - MVPでは、同意ピン留めノートを手動作成するなら実装ブロッカーではない。
+- ピン留めノートへの❤リアクションを1分pollingで安定して検知できるか。
+  - 実装は `notes/reactions` で作成済み。実機確認待ち。
+- 通知、リプライ、フォロー、リアクションをどのAPI endpointで取得するか。
+  - リプライ・メンション通知は `i/notifications` で実装済み。
+  - ピン留め同意ノートのリアクションは `notes/reactions` で実装済み。
+  - フォロー通知は `i/notifications` の `follow` で実装済み。実機確認待ち。
 
 ## 投稿スケジューリング
 
 - 30分周期の体験候補収集と、5分抽選投稿をどう接続するか。
 - 直前ノートからの経過時間に応じた確率曲線の具体式。
 - おはよう / おやすみ確率の具体式。
-- 1日あたり引用Renote回数上限の具体値。
 - 寝言を月2回程度にする確率設計。
 - 寝言の内容の安全範囲。
 
 ## マスタ定義
 
-- `m_post_kind` の初期値。
-  - `morning`
-  - `night`
-  - `sleep_talk`
-  - `tl_observation`
-  - `experience`
-  - `normal`
-  - `reply`
-  - `reaction_note`
-- `m_rate_limit` の初期値。
-  - `notes_per_hour`: 5
-  - `notes_per_day`: 50
-  - `quote_renotes_per_day`: 5
-  - `user_triggered_posts_per_5min`: 5
-- `m_safety_rule` の初期ルール。
+- `m_safety_rule` の初期ルールを、実装用の辞書・正規表現・AI分類カテゴリへ落とす。
   - CW
   - NSFW
   - 個人情報
@@ -55,29 +44,21 @@
   - 投資
   - 成人向け
   - 攻撃的内容
-- `m_command` の初期値。
-  - `/stop`
-  - `/unfollow`
-- `consent_status` の採用値。
-  - `pending`
-  - `consented`
-  - `stopped`
-  - `unfollowed`
-  - `revoked`
-- `experience_candidates.status` の採用値。
-  - `pending`
-  - `executed`
-  - `rejected`
-  - `expired`
+- 不適切語フィルタの初期辞書。
+  - 初期実装はお任せ。
+  - 運用後にユーザーが添削する。
+- `m_emotion_asset` の初期ラベル。
+  - 各画像のemotion。
+  - 各画像のpost kind。
+  - cooldown時間。
+  - GIFの使用頻度。
 
 ## TL観測・体験候補
 
 - 許可済みユーザーが見つからない時の最大10回探索を、Phase 2以降で入れるか。
-- 同じ話題を連続で拾うことを、どこまでTLの流れとして許容するか。
-- TL観測に使う20ノートから「特定の話題に偏っている」と判定する基準。
-- 体験候補に使ってよい「好意的・軽い日常」の判定基準。
-- ノート本文をDBにどの粒度で要約・分類して残すか。
-- `note-exp-history` 草案と、既存の `tl_observations` / `experience_candidates` / `experience_logs` 案をどう統合するか。
+- TL観測に使う20ノートから「特定の話題に偏っている」と判定するAI prompt。
+- 体験候補を弾くブラックリスト方式のAI prompt。
+- 他者note本文をDBに残す要約粒度。
 
 ## 引用Renote
 
@@ -85,10 +66,5 @@
 
 ## キャラクター設計
 
-- 体験投稿をどのくらい日記風にするか。
-- ユーザー名を出す時の温度感。
-- 許可依頼文と体験投稿文を、実際の稼働前にサンプル投稿で検証する。
-
-## 安全弁全般
-- 不適切語フィルタの初期辞書。
-- Bot管理者アカウントの実アカウント名。
+- 許可依頼文と体験投稿文を、実働テストで調整する。
+- 容姿概要の裏設定を決める。
