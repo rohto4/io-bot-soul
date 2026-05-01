@@ -132,13 +132,16 @@ describe("runScheduledPostDraw", () => {
       }
     );
 
+    // 1回目: TL観測ガチャを外す(0.9 >= 0.20), 2回目: 通常ノート確率テーブルで当てる(0.1 < 0.15)
+    const calls = [0.9, 0.1];
+    let ci = 0;
     await runScheduledPostDraw({
       db,
       logger,
       client,
       at: "2026-05-01T00:30:00.000Z",
       enabled: true,
-      random: () => 0.1,
+      random: () => calls[ci++] ?? 0.9,
       generateText: async () => "生活ログ、テスト。"
     });
 
@@ -200,6 +203,7 @@ describe("runScheduledPostDraw", () => {
       client,
       at: "2026-05-01T12:00:00.000Z",
       enabled: true,
+      random: () => 0.9, // TL観測ガチャを外す。latestNormalなしなので直接normal
       generateText: async () => "生活ログ、テスト。"
     });
 

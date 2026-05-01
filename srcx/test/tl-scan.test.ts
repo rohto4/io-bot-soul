@@ -128,7 +128,7 @@ describe("TL observation action lottery", () => {
     expect(post?.quote_source_note_id).toBe("source-note");
   });
 
-  it("falls through to normal post when TL has too few summaries", async () => {
+  it("skips without fallback to normal when TL has too few summaries", async () => {
     const { runScheduledPostDraw } = await import("../../src/scheduled-post.js");
     const db = await createTestDb();
     const logger = createLogger();
@@ -138,6 +138,7 @@ describe("TL observation action lottery", () => {
       getUserNotes: vi.fn(async () => [])
     };
 
+    // 0.1 < 0.20 → TL観測当たり → summaries=0 → skip（通常ノートへは落ちない）
     await runScheduledPostDraw({
       db,
       logger,
@@ -148,8 +149,10 @@ describe("TL observation action lottery", () => {
       generateText: async () => "通常ノート。"
     });
 
-    expect(client.createNote).toHaveBeenCalledTimes(1);
-    const post = await db.get<{ kind: string }>("SELECT kind FROM posts LIMIT 1");
-    expect(post?.kind).toBe("normal");
+    expect(client.createNote).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      "scheduledPost.skip",
+      expect.objectContaining({ reason: "too_few_summaries" })
+    );
   });
 });
