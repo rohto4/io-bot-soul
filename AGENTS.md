@@ -28,6 +28,20 @@
 4. 必要に応じて `.agents/skills/*/SKILL.md`
 5. 必要に応じて `commands/*.md`
 
+## OpenCode設定の持ち込み
+
+次以降のPJで、`docs/guide/opencode/` 配下に次のファイル・フォルダが置かれている場合は、初期処理として `docs/guide/opencode/oc-active-init.md` を読む。
+
+- `docs/guide/opencode/oc-active-init.md`
+- `docs/guide/opencode/project-root/`
+- `docs/guide/opencode/project-dot-opencode/`
+- `docs/guide/opencode/global-config/`
+
+`oc-active-init.md` は、OpenCode / oh-my-openagent / Chutes 用設定を正しい場所へ配置するためのAI向け手順書として扱う。
+グローバルセットアップ（全マシン一度）とPJごとのセットアップの2段階に分かれている。
+既に完了しているかどうかを自動検出してからスキップまたは実行する。
+この処理では secret やAPIキーを書き込まず、既存設定がある場合はバックアップしてから配置する。
+
 ## 情報の置き場所
 
 - `docs/guide/`: 採用済みの運用ガイド、判断基準、ルール補足

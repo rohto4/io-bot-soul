@@ -12,7 +12,7 @@
 - Misskey tokenなどのsecretは `.env.local` に置き、Gitには入れない。
 - `restart: unless-stopped` を使い、Docker Desktop起動後に自動復旧しやすくする。
 - MVPのDocker常駐プロセスは1分pollingで通知、リプライ、フォロー、リアクションを確認する。
-- 5分ごとの投稿抽選はGitHub Actionsの `Scheduled Post Draw` に分離する。
+- 5分ごとの投稿抽選も同じDocker常駐プロセスで実行する。
 - Streaming APIは安定化後の改善候補に回す。
 
 ## 想定ディレクトリ
@@ -42,6 +42,7 @@ DATABASE_PROVIDER=postgres
 DATABASE_URL=
 SQLITE_PATH=/app/data/bot.sqlite
 POLL_INTERVAL_SECONDS=60
+POST_DRAW_INTERVAL_SECONDS=300
 SCHEDULED_POSTING_ENABLED=false
 CHUTES_API_KEY=
 OPENAI_API_KEY=
@@ -77,7 +78,7 @@ docker compose down
 
 ## ワンショット定期処理
 
-常駐プロセスとは別に、1回だけ定期処理を実行して終了する入口を用意する。
+常駐プロセスとは別に、確認用として1回だけ定期処理を実行して終了する入口も残す。
 
 ```powershell
 npm run scheduled:post-draw
@@ -86,28 +87,21 @@ docker compose run --rm bot node dist/scheduled.js post-draw
 
 `post-draw` は投稿抽選用の入口で、`SCHEDULED_POSTING_ENABLED=true` のときだけ通常ノートを作成する。
 初期値は `false` のため、設定を有効化するまではDB更新とskipログのみを行う。
-GitHub Actionsなどの外部スケジューラからも同じ入口を使う。
-GitHub Actionsの `Scheduled Post Draw` は5分ごとにこの入口を実行し、投稿するかどうかを抽選する。
-
-注意: GitHub Actions上のSQLiteはローカルDockerの `data/bot.sqlite` とは別物になる。
-投稿履歴や体験ログを共有したい段階では、永続DBをGitHub Actionsからも参照できる構成へ移す必要がある。
-
-Neon/Postgresへ移行した後は、ローカルDockerとGitHub Actionsの両方に同じ `DATABASE_URL` を設定する。
-この場合、SQLiteの `data/bot.sqlite` は使わず、Neon上のPostgresを共有DBとして扱う。
+Docker常駐では `POST_DRAW_INTERVAL_SECONDS=300` を既定値として、5分ごとに同じ投稿抽選を行う。
 
 ## 定期ノートの有効化
 
-GitHub Actionsで定期ノートを投稿する場合は、repository variablesに次を設定する。
+Docker常駐で定期ノートを投稿する場合は、`.env.local` に次を設定してコンテナを再起動する。
 
 ```text
 SCHEDULED_POSTING_ENABLED=true
 ```
 
-`SCHEDULED_POSTING_ENABLED` が `false` または未設定の場合、workflowは成功してもノート投稿は行わない。
+`SCHEDULED_POSTING_ENABLED` が `false` または未設定の場合、post-drawタイマーは動いてもノート投稿は行わない。
 `SCHEDULED_POST_MIN_INTERVAL_MINUTES` はDBマスタ `m_runtime_setting` で、DB上の直近の通常投稿から最低何分空けるかを決める。
 5分未満は必ずskipし、5分以上は投稿抽選に入る。
 投稿確率は直近通常投稿からの経過時間で上がり、目安は5分後10%、10分後15%、30分後80%、1時間超95%。
-初期実装の定期ノートは `home` visibilityで投稿し、`posts.kind = normal`、`generated_reason = scheduled_post_draw_v0` として記録する。
+初期実装の定期ノートは `public` visibilityで投稿し、`posts.kind = normal`、`generated_reason = scheduled_post_draw_v0` として記録する。
 
 現在の運用値は次のSQLで確認する。
 

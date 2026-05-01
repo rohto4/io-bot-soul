@@ -1,6 +1,6 @@
 # DB Schema
 
-初期DBはSQLiteで開始したが、ローカルDocker常駐プロセスとGitHub Actionsの状態共有のため、Neon/Postgresへ移行する。
+初期DBはSQLiteで開始したが、Docker常駐運用で安定して状態を保持するため、Neon/Postgresへ移行する。
 
 このschemaは、ローカルPC常駐botのMVP実装に必要な最小構成とする。
 
@@ -8,7 +8,7 @@
 
 - `DATABASE_PROVIDER=postgres` の場合、`DATABASE_URL` でNeon/Postgresへ接続する。
 - `DATABASE_PROVIDER=sqlite` の場合、`SQLITE_PATH` でSQLiteへ接続する。
-- ローカルDockerとGitHub Actionsは、同じNeon `DATABASE_URL` を使うことで状態を共有する。
+- ローカルDockerは、Neon `DATABASE_URL` を使うことで投稿履歴、同意状態、体験ログを永続化する。
 - SQLiteはテストとfallback用に残す。
 
 ## 方針
@@ -379,7 +379,7 @@ CREATE TABLE m_emotion_asset (
 
 投稿確率、最短投稿間隔、取得limit、rate limit、AI provider、model id、timeout、retry、token上限、temperature、fallback方針などの非secret運用設定。
 
-API keyは保存しない。`CHUTES_API_KEY` と `OPENAI_API_KEY` は `.env.local` またはGitHub Actions secretsに置く。
+API keyは保存しない。`CHUTES_API_KEY` と `OPENAI_API_KEY` は `.env.local` に置く。
 
 ```sql
 CREATE TABLE m_runtime_setting (

@@ -10,7 +10,7 @@ type Clock = () => Date;
 export type BotApp = {
   pollOnce(): Promise<void>;
   drawPostOnce(): Promise<void>;
-  start(intervals: { pollIntervalMs: number }): () => void;
+  start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number }): () => void;
 };
 
 export function createBotApp(options: {
@@ -82,8 +82,9 @@ export function createBotApp(options: {
     });
   }
 
-  function start(intervals: { pollIntervalMs: number }): () => void {
+  function start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number }): () => void {
     let pollRunning = false;
+    let postDrawRunning = false;
 
     function runPoll(): void {
       if (pollRunning) {
@@ -101,14 +102,34 @@ export function createBotApp(options: {
         });
     }
 
+    function runPostDraw(): void {
+      if (postDrawRunning) {
+        options.logger.warn("postDraw.skip", { reason: "already_running" });
+        return;
+      }
+
+      postDrawRunning = true;
+      void drawPostOnce()
+        .catch((error: unknown) => {
+          options.logger.error("postDraw.error", { error: String(error) });
+        })
+        .finally(() => {
+          postDrawRunning = false;
+        });
+    }
+
     runPoll();
 
     const pollTimer = setInterval(() => {
       runPoll();
     }, intervals.pollIntervalMs);
+    const postDrawTimer = setInterval(() => {
+      runPostDraw();
+    }, intervals.postDrawIntervalMs);
 
     return () => {
       clearInterval(pollTimer);
+      clearInterval(postDrawTimer);
     };
   }
 

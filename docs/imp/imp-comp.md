@@ -58,6 +58,15 @@
 - `POST_DRAW_INTERVAL_SECONDS` は不要になったため、環境変数とworkflow envから削除した。
 - スクリプトの役割分担を `docs/guide/script-overview.md` に整理した。
 
+## 2026-05-02 Docker常駐への定期投稿移行
+
+- GitHub Actionsの定期投稿workflowを削除し、5分ごとの投稿抽選をDocker常駐プロセスへ移した。
+- `POST_DRAW_INTERVAL_SECONDS` を復活させ、初期値を300秒にした。
+- `npm start` / `src/main.ts` は、毎分pollingとpost-drawタイマーの両方を起動する。
+- post-drawは前回処理がまだ実行中なら `postDraw.skip` / `reason = already_running` として重複実行を避ける。
+- `SCHEDULED_POSTING_ENABLED` は引き続き最終安全スイッチとして残す。
+- `npm run scheduled:post-draw:prod` はDocker手動確認用のワンショット入口として残す。
+
 ## 2026-05-01 Neon/Postgres移行土台
 
 - DB操作をSQLite直結から共通 `DbClient` へ移行。
@@ -65,6 +74,18 @@
 - Neon用に `pg` を追加。
 - Postgres用schema変換を追加し、`AUTOINCREMENT` をidentity columnへ変換。
 - GitHub Actions workflowで `DATABASE_PROVIDER` と `DATABASE_URL` を読むように変更。
+
+## 2026-05-02 OpenCode / oh-my-openagent グローバル設定整備
+
+- グローバル `~/.config/opencode/opencode.json` に plugin エントリ・Chutes プロバイダー定義・デフォルトモデル設定がなく、io-bot-soul 以外のすべての PJ で oh-my-openagent と Chutes が動作しない状態だったことを特定した。
+- `CHUTES_API_KEY` が Windows ユーザー環境変数に未登録で `{env:CHUTES_API_KEY}` が空文字になっていたことを特定した。
+- `CHUTES_API_KEY` を `HKCU\Environment` に登録した。
+- グローバル `opencode.json` を `plugin: ["oh-my-openagent@latest"]` + Chutes プロバイダー全モデル定義 + デフォルトモデル設定で全面書き換えた。
+- `opencode debug config` で `plugin_origins.scope=global` を確認し、全 PJ での動作を検証した。
+- `docs/guide/opencode/global-config/opencode.json` テンプレートを実設定と同期した。
+- `docs/guide/opencode/oc-active-init.md` を全面改訂し、Phase 1（全マシン一度）と Phase 2（PJ ごと）の 2 段階構成に整理した。
+- 調査内容を `docs/guide/opencode/99_調査結果/investigation-20260502.md` にまとめた。
+- `docs/spec/teck-stack.md` に設定方針・修正内容・検証結果を追記した。
 
 ## 2026-05-01 AI provider方針と疎通確認
 

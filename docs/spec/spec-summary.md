@@ -9,7 +9,7 @@
 - 通知・リプライ・リアクション確認は、MVPでは1分pollingで行う。
 - Misskey Streaming APIは、polling実装が安定した後の改善候補にする。
 - 初期DBはSQLiteを使う。
-- ローカルDocker常駐とGitHub Actionsで状態を共有する段階では、Neon/Postgresを採用する。
+- ローカルDocker常駐で状態を安定して保持するため、Neon/Postgresを採用する。
 - タイムライン由来の材料は、`tl_observations`、`experience_candidates`、`experience_logs` に分ける。
 - `tl_observations` は、個人を特定しないTL観測として扱う。許可は不要だが、安全判定は必須。
 - `experience_candidates` は、許可済みユーザーの投稿から作る体験候補。まだ体験として記憶しない。

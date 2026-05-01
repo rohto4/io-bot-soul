@@ -19,7 +19,7 @@
 - Docker Desktop上で常駐起動し、`restart: unless-stopped` で復旧させる。
 - ログとSQLite DBをホスト側volumeに保存する。
 - ワンショット定期処理CLIを作成。
-- GitHub Actionsから定期実行できるworkflowを作成。
+- Docker常駐プロセス内で5分ごとの投稿抽選を実行する。
 
 ### Phase 2: 同意管理
 
@@ -65,7 +65,7 @@
 
 ### Phase 6.5: AI provider運用
 
-- `.env.local` とGitHub Actions secretsにはAI API keyだけを入れる。
+- `.env.local` にはAI API keyだけを入れる。
 - provider、model id、timeout、retry、token上限、temperature、日次上限、fallback方針はDBマスタで管理する。
 - Chutesは `moonshotai/Kimi-K2.5-TEE` を初期モデルにする。
 - OpenAI fallbackは `gpt-5.4-mini` を初期モデルにする。

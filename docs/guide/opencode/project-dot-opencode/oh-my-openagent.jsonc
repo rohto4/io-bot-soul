@@ -1,0 +1,173 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
+
+  // Chutes-only 設定（OpenAI なし）。
+  // 評価ソース: ../chutes-model-compare/models-compact.html (43モデル)
+
+  "default_run_agent": "hephaestus",
+
+  "runtime_fallback": {
+    "enabled": true,
+    "retry_on_errors": [400, 503, 529],
+    "max_fallback_attempts": 1,
+    "cooldown_seconds": 60,
+    "timeout_seconds": 45,
+    "notify_on_fallback": true
+  },
+
+  "background_task": {
+    "defaultConcurrency": 1,
+    "staleTimeoutMs": 420000,
+    "providerConcurrency": {
+      "chutes": 1
+    }
+  },
+
+  "model_capabilities": {
+    "enabled": true,
+    "auto_refresh_on_start": true,
+    "refresh_timeout_ms": 5000,
+    "source_url": "https://models.dev/api.json"
+  },
+
+  "hashline_edit": true,
+
+  // --- Agents ---
+
+  // Conductor: 重めの統括。明示指定時だけ使う。
+  "agents": {
+    "sisyphus": {
+      "model": "chutes/kimi-k2.5-tee",
+      "fallback_models": [
+        "chutes/qwen3-32b-tee"
+      ]
+    },
+
+    // Main implementer: コーディング特化
+    "hephaestus": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/qwen3-coder-next-tee"
+      ]
+    },
+
+    // Planner: Thinking 特化で計画立案
+    "prometheus": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/deepseek-r1-0528-tee"
+      ],
+      "prompt_append": "Always propose a verifiable plan (files, commands, success criteria)."
+    },
+
+    // Read-only architecture/debug: 深い推論
+    "oracle": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/deepseek-r1-0528-tee"
+      ],
+      "permission": { "edit": "deny" }
+    },
+
+    // Cheap internal exploration: 超軽量
+    "explore": {
+      "model": "chutes/gemma-3-4b"
+    },
+
+    // External research / web: 高速
+    "librarian": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": ["chutes/qwen3-32b-tee"]
+    },
+
+    // Images / UI screenshots: ビジョン
+    "multimodal-looker": {
+      "model": "chutes/kimi-k2.5-tee",
+      "fallback_models": [
+        "chutes/glm-4.6v",
+        "chutes/qwen2-5-vl-32b"
+      ]
+    },
+
+    // Pre-planning consultant: 推論系
+    "metis": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/deepseek-r1-0528-tee"
+      ],
+      "permission": { "edit": "deny" }
+    },
+
+    // Plan review / QA
+    "momus": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/tng-r1t2-chimera-tee",
+        "chutes/glm-4.7-tee"
+      ],
+      "permission": { "edit": "deny" }
+    },
+
+    // Documentation / longform: 長文脈モデル
+    "atlas": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/kimi-k2.5-tee"
+      ]
+    }
+  },
+
+  // --- Categories ---
+  "categories": {
+    "quick": {
+      "model": "chutes/gemma-3-4b",
+      "description": "Single-file small changes / quick checks"
+    },
+
+    "unspecified-low": {
+      "model": "chutes/gemma-3-4b",
+      "description": "Low-effort tasks, short analysis"
+    },
+
+    "unspecified-high": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/deepseek-v3.2-tee"
+      ],
+      "description": "High-effort implementation and debugging"
+    },
+
+    "deep": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/deepseek-r1-0528-tee"
+      ],
+      "description": "Thorough investigation before acting"
+    },
+
+    "ultrabrain": {
+      "model": "chutes/kimi-k2.5-tee",
+      "fallback_models": [
+        "chutes/qwen3-32b-tee"
+      ],
+      "description": "Hard architecture / debugging"
+    },
+
+    "writing": {
+      "model": "chutes/qwen3-32b-tee",
+      "fallback_models": [
+        "chutes/kimi-k2.5-tee"
+      ],
+      "description": "Docs / proposals / summaries"
+    },
+
+    "visual-engineering": {
+      "model": "chutes/kimi-k2.5-tee",
+      "fallback_models": [
+        "chutes/glm-4.6v",
+        "chutes/qwen2-5-vl-32b"
+      ],
+      "description": "UI/UX / visual inspection"
+    }
+  }
+}

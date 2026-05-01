@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "chutes/qwen3-32b-tee",
+  "small_model": "chutes/gemma-3-4b",
+  "plugin": ["oh-my-openagent@latest"],
+  "provider": {
+    "chutes": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Chutes",
+      "options": {
+        "baseURL": "https://llm.chutes.ai/v1",
+        "apiKey": "{env:CHUTES_API_KEY}",
+        "timeout": 600000,
+        "chunkTimeout": 45000
+      },
+      "models": {
+        "qwen3-32b-tee":          { "id": "Qwen/Qwen3-32B-TEE",                      "name": "Qwen3 32B (TEE)" },
+        "qwen3-coder-next-tee":   { "id": "Qwen/Qwen3-Coder-Next-TEE",               "name": "Qwen3 Coder Next (TEE)" },
+        "deepseek-v3.2-tee":      { "id": "deepseek-ai/DeepSeek-V3.2-TEE",           "name": "DeepSeek V3.2 (TEE)" },
+        "kimi-k2.5-tee":          { "id": "moonshotai/Kimi-K2.5-TEE",                "name": "Kimi K2.5 (TEE)" },
+        "minimax-m2.5-tee":       { "id": "MiniMaxAI/MiniMax-M2.5-TEE",              "name": "MiniMax M2.5 (TEE)" },
+        "qwen3-5-397b-tee":       { "id": "Qwen/Qwen3.5-397B-A17B-TEE",             "name": "Qwen3.5 397B (TEE)" },
+        "qwen3-235b-instruct-tee":{ "id": "Qwen/Qwen3-235B-A22B-Instruct-2507-TEE", "name": "Qwen3 235B Instruct (TEE)" },
+        "glm-5-turbo":            { "id": "zai-org/GLM-5-Turbo",                     "name": "GLM-5 Turbo" },
+        "glm-5.1-tee":            { "id": "zai-org/GLM-5.1-TEE",                     "name": "GLM-5.1 (TEE)" },
+        "deepseek-r1-0528-tee":   { "id": "deepseek-ai/DeepSeek-R1-0528-TEE",       "name": "DeepSeek R1 0528 (TEE)" },
+        "tng-r1t2-chimera-tee":   { "id": "tngtech/DeepSeek-TNG-R1T2-Chimera-TEE",  "name": "TNG R1T2 Chimera (TEE)" },
+        "mimo-v2-flash-tee":      { "id": "XiaomiMiMo/MiMo-V2-Flash-TEE",           "name": "MiMo V2 Flash (TEE)" },
+        "qwen3-235b-thinking":    { "id": "Qwen/Qwen3-235B-A22B-Thinking-2507",     "name": "Qwen3 235B Thinking" },
+        "gpt-oss-120b-tee":       { "id": "openai/gpt-oss-120b-TEE",                "name": "GPT-OSS 120B (TEE)" },
+        "glm-4.7-tee":            { "id": "zai-org/GLM-4.7-TEE",                    "name": "GLM-4.7 (TEE)" },
+        "glm-4.6v":               { "id": "zai-org/GLM-4.6V",                       "name": "GLM-4.6V" },
+        "qwen2-5-vl-32b":         { "id": "Qwen/Qwen2.5-VL-32B-Instruct",          "name": "Qwen2.5 VL 32B" },
+        "qwen3-next-80b":         { "id": "Qwen/Qwen3-Next-80B-A3B-Instruct",       "name": "Qwen3 Next 80B" },
+        "gemma-3-4b":             { "id": "unsloth/gemma-3-4b-it",                  "name": "Gemma 3 4B" },
+        "dots-ocr":               { "id": "rednote-hilab/dots.ocr",                 "name": "dots.ocr" },
+        "qwen3guard-0.6b":        { "id": "Qwen/Qwen3Guard-Gen-0.6B",               "name": "Qwen3Guard 0.6B" }
+      }
+    }
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+  "mcp": {}
+}

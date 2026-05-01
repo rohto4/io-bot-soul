@@ -1,0 +1,29 @@
+docker compose up -d --build
+docker compose logs -f bot
+
+このPJのDockerは、Dockerfile 内で src/ をコピーして npm run build しているので、コード変更・docs以外の実装変更・package.json 変更は --build 付
+きで反映されます。
+
+ただし注意点があります。
+
+.env.local だけ変えた場合
+--build は不要ですが、再起動は必要です。
+
+docker compose up -d
+package.json / package-lock.json を変えた場合
+必ずこれ。
+
+docker compose up -d --build
+DB migrationを追加した場合
+コンテナ起動だけではmigrationは自動実行されません。別途これが必要です。
+
+npm run db:migrate
+
+もしくはDocker内で実行する運用にする必要があります。
+完全に作り直したい場合
+通常は不要ですが、キャッシュが怪しい時だけ。
+
+docker compose build --no-cache
+docker compose up -d
+
+今回のようなコード更新なら、最初の2行でOKです。

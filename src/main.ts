@@ -28,11 +28,13 @@ const app = createBotApp({
 logger.info("bot.start", {
   misskeyHost: config.misskeyHost,
   adminAccount: config.adminAccount,
-  pollIntervalMs: config.pollIntervalMs
+  pollIntervalMs: config.pollIntervalMs,
+  postDrawIntervalMs: config.postDrawIntervalMs
 });
 
 const stop = app.start({
-  pollIntervalMs: config.pollIntervalMs
+  pollIntervalMs: config.pollIntervalMs,
+  postDrawIntervalMs: config.postDrawIntervalMs
 });
 
 function shutdown(signal: NodeJS.Signals): void {

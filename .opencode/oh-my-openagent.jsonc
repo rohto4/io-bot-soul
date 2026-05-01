@@ -4,22 +4,22 @@
   // Chutes-only 設定（OpenAI なし）。
   // 評価ソース: ../chutes-model-compare/models-compact.html (43モデル)
 
-  "default_run_agent": "sisyphus",
+  "default_run_agent": "hephaestus",
 
   "runtime_fallback": {
     "enabled": true,
-    "retry_on_errors": [400, 429, 503, 529],
-    "max_fallback_attempts": 3,
+    "retry_on_errors": [400, 503, 529],
+    "max_fallback_attempts": 1,
     "cooldown_seconds": 60,
-    "timeout_seconds": 30,
+    "timeout_seconds": 45,
     "notify_on_fallback": true
   },
 
   "background_task": {
-    "defaultConcurrency": 6,
+    "defaultConcurrency": 1,
     "staleTimeoutMs": 420000,
     "providerConcurrency": {
-      "chutes": 12
+      "chutes": 1
     }
   },
 
@@ -34,45 +34,37 @@
 
   // --- Agents ---
 
-  // Conductor: 最大規模モデルで全体統括
+  // Conductor: 重めの統括。明示指定時だけ使う。
   "agents": {
     "sisyphus": {
-      "model": "chutes/qwen3-5-397b-tee",
+      "model": "chutes/kimi-k2.5-tee",
       "fallback_models": [
-        "chutes/kimi-k2.5-tee",
-        "chutes/qwen3-235b-instruct-tee",
         "chutes/qwen3-32b-tee"
       ]
     },
 
     // Main implementer: コーディング特化
     "hephaestus": {
-      "model": "chutes/qwen3-coder-next-tee",
+      "model": "chutes/qwen3-32b-tee",
       "fallback_models": [
-        "chutes/qwen3-32b-tee",
-        "chutes/deepseek-v3.2-tee",
-        "chutes/kimi-k2.5-tee"
+        "chutes/qwen3-coder-next-tee"
       ]
     },
 
     // Planner: Thinking 特化で計画立案
     "prometheus": {
-      "model": "chutes/qwen3-235b-thinking",
+      "model": "chutes/qwen3-32b-tee",
       "fallback_models": [
-        "chutes/deepseek-r1-0528-tee",
-        "chutes/glm-4.7-tee",
-        "chutes/qwen3-32b-tee"
+        "chutes/deepseek-r1-0528-tee"
       ],
       "prompt_append": "Always propose a verifiable plan (files, commands, success criteria)."
     },
 
     // Read-only architecture/debug: 深い推論
     "oracle": {
-      "model": "chutes/deepseek-r1-0528-tee",
+      "model": "chutes/qwen3-32b-tee",
       "fallback_models": [
-        "chutes/glm-4.7-tee",
-        "chutes/qwen3-235b-instruct-tee",
-        "chutes/qwen3-32b-tee"
+        "chutes/deepseek-r1-0528-tee"
       ],
       "permission": { "edit": "deny" }
     },
@@ -84,7 +76,7 @@
 
     // External research / web: 高速
     "librarian": {
-      "model": "chutes/qwen3-next-80b",
+      "model": "chutes/qwen3-32b-tee",
       "fallback_models": ["chutes/qwen3-32b-tee"]
     },
 
@@ -99,11 +91,9 @@
 
     // Pre-planning consultant: 推論系
     "metis": {
-      "model": "chutes/deepseek-r1-0528-tee",
+      "model": "chutes/qwen3-32b-tee",
       "fallback_models": [
-        "chutes/tng-r1t2-chimera-tee",
-        "chutes/glm-4.7-tee",
-        "chutes/qwen3-32b-tee"
+        "chutes/deepseek-r1-0528-tee"
       ],
       "permission": { "edit": "deny" }
     },
@@ -120,10 +110,9 @@
 
     // Documentation / longform: 長文脈モデル
     "atlas": {
-      "model": "chutes/minimax-m2.5-tee",
+      "model": "chutes/qwen3-32b-tee",
       "fallback_models": [
-        "chutes/kimi-k2.5-tee",
-        "chutes/qwen3-32b-tee"
+        "chutes/kimi-k2.5-tee"
       ]
     }
   },
@@ -143,37 +132,31 @@
     "unspecified-high": {
       "model": "chutes/qwen3-32b-tee",
       "fallback_models": [
-        "chutes/deepseek-v3.2-tee",
-        "chutes/kimi-k2.5-tee",
-        "chutes/qwen3-235b-instruct-tee"
+        "chutes/deepseek-v3.2-tee"
       ],
       "description": "High-effort implementation and debugging"
     },
 
     "deep": {
-      "model": "chutes/deepseek-r1-0528-tee",
+      "model": "chutes/qwen3-32b-tee",
       "fallback_models": [
-        "chutes/qwen3-235b-thinking",
-        "chutes/glm-4.7-tee"
+        "chutes/deepseek-r1-0528-tee"
       ],
       "description": "Thorough investigation before acting"
     },
 
     "ultrabrain": {
-      "model": "chutes/qwen3-5-397b-tee",
+      "model": "chutes/kimi-k2.5-tee",
       "fallback_models": [
-        "chutes/deepseek-r1-0528-tee",
-        "chutes/qwen3-235b-thinking",
-        "chutes/kimi-k2.5-tee"
+        "chutes/qwen3-32b-tee"
       ],
       "description": "Hard architecture / debugging"
     },
 
     "writing": {
-      "model": "chutes/minimax-m2.5-tee",
+      "model": "chutes/qwen3-32b-tee",
       "fallback_models": [
-        "chutes/kimi-k2.5-tee",
-        "chutes/qwen3-32b-tee"
+        "chutes/kimi-k2.5-tee"
       ],
       "description": "Docs / proposals / summaries"
     },

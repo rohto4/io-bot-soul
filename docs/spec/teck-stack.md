@@ -81,6 +81,42 @@
   - ユーザー操作によりリプライや公開投稿を行うBotは、レートリミットと不適切語フィルタが必要。
   - 連続した公開投稿でタイムラインを埋めないこと。
 
+## 2026-05-02 追記: OpenCode + oh-my-openagent + Chutes グローバル設定
+
+### 問題と原因
+
+- `opencode` 1.14.31 / `oh-my-openagent` 3.17.12 がどのPJでも動作しない状態だった。
+- 根本原因1: グローバル設定 `C:\Users\unibe\.config\opencode\opencode.json` に `plugin` エントリも `provider` 設定も存在しなかった。プラグインのスコープが `local` しかなく、io-bot-soul 以外では oh-my-openagent が一切読まれなかった。
+- 根本原因2: `CHUTES_API_KEY` が Windows ユーザー環境変数に未登録。`opencode.jsonc` の `{env:CHUTES_API_KEY}` が空文字列に解決され、Chutes への認証が失敗していた。
+
+### 修正内容
+
+1. `CHUTES_API_KEY` を `HKCU\Environment` (Windows ユーザー環境変数) に登録。
+   - ソース: `.env.local`。新しいターミナルを開くと自動的に有効になる。
+2. `C:\Users\unibe\.config\opencode\opencode.json` を全面的に書き換え。
+   - `"plugin": ["oh-my-openagent@latest"]` を追加 → スコープが `global` になりすべてのPJで有効。
+   - Chutes プロバイダー定義をグローバル設定に移動 (`{env:CHUTES_API_KEY}`)。
+   - `"model": "chutes/qwen3-32b-tee"` / `"small_model": "chutes/gemma-3-4b"` をデフォルト設定。
+   - `"enabled_providers"` は設定しない（グローバルでは制限しない）。
+3. `docs/guide/opencode/global-config/opencode.json` テンプレートを実際の設定と同期。
+
+### 検証結果
+
+- `opencode debug config` (HOMEディレクトリから実行):
+  - `plugin_origins.scope: global` → グローバル設定から oh-my-openagent が読まれていることを確認。
+  - `model: chutes/qwen3-32b-tee` が有効。
+- io-bot-soul PJからは `enabled_providers: chutes` が上書きされる（PJレベルの `opencode.jsonc` による）。
+
+### フォールバック方針
+
+- oh-my-openagent の `fallback_models` で Chutes 内の軽量モデル（`gemma-3-4b` 等）がフォールバック。
+- `enabled_providers` 未設定のため、将来 OpenCode 内蔵の Antigravity / Anthropic Auth を追加することも可能。
+
+### 注意
+
+- 環境変数の変更は現在のターミナルセッションには反映されない。新しいターミナルを開いてから opencode を起動すること。
+- 新しい PJ で oh-my-openagent カスタムエージェントを使いたい場合は `oc-active-init.md` に従って `.opencode/oh-my-openagent.jsonc` を配置する。
+
 ## 未決事項
 
 - 常時オンライン表示がMisskey上でどの条件により維持されるか。
@@ -161,7 +197,7 @@
    - 現在はテストとfallback用に残す。
 2. PostgreSQL
    - NeonDBで採用。
-   - ローカルDocker常駐とGitHub Actionsの共有DBとして使う。
+   - ローカルDocker常駐の永続DBとして使う。
    - 複数実行元から、処理済み通知、同意状態、投稿履歴、体験ログを共有できる。
 3. JSONファイル
    - 一時試作には使えるが、疑似生活ログや重複防止を扱うなら早期にSQLiteへ移す。
@@ -170,16 +206,15 @@
 
 ### 判断
 
-- ローカルDocker常駐プロセスとGitHub Actionsの両方から同じ状態を参照するため、NeonDBを採用する。
+- ローカルDocker常駐プロセスで投稿履歴、同意状態、体験ログを安定して保持するため、NeonDBを採用する。
 - 接続は `DATABASE_PROVIDER=postgres` と `DATABASE_URL` で制御する。
 - SQLiteはローカルfallbackとテスト用に残す。
 
 ### 注意
 
-- GitHub Actions secretsには `DATABASE_PROVIDER`、`DATABASE_URL`、`MISSKEY_TOKEN`、`PINNED_CONSENT_NOTE_ID` を登録する。
-- 定期ノート投稿は、GitHub Actions variablesの `SCHEDULED_POSTING_ENABLED=true` で明示的に有効化する。
-- 初期状態では `false` とし、手動実行でskipログを確認してから有効化する。
-- Actionsの公式ActionはNode 20 runtime deprecation warningを避けるため、`actions/checkout@v6` と `actions/setup-node@v6` を使う。
+- ローカルDockerの `.env.local` には `DATABASE_PROVIDER`、`DATABASE_URL`、`MISSKEY_TOKEN`、`PINNED_CONSENT_NOTE_ID` を設定する。
+- 定期ノート投稿は、`.env.local` の `SCHEDULED_POSTING_ENABLED=true` で明示的に有効化する。
+- 初期状態では `false` とし、Docker常駐ログでskipログを確認してから有効化する。
 - Neonの接続文字列はpooled connection stringを優先する。
 - `pg` が `sslmode=require` に対して将来挙動変更予定の警告を出す。可能ならNeonの `DATABASE_URL` は `sslmode=verify-full` を明示する。
 
@@ -207,9 +242,9 @@
 
 - AI生成・分類は、Chutesをprimary、OpenAIをfallbackとして扱う。
 - OpenAI fallbackは従量課金API keyを使い、Chutes失敗時の「絶対死守ライン」とする。
-- API keyは `.env.local` とGitHub Actions secretsに置き、Gitには入れない。
+- API keyは `.env.local` に置き、Gitには入れない。
 - 投稿確率、最短投稿間隔、model id、base URL、timeout、retry、token上限、temperature、日次fallback上限などはDBマスタ `m_runtime_setting` で管理する。
-- GitHub Actions variablesには運用調整値を大量登録しない。
+- 外部schedulerのvariablesには運用調整値を大量登録しない。
 - 初期はmigrationでDBへデフォルト値を投入し、P1/P2でGUI編集に対応する。
 
 ### 疎通確認結果

@@ -29,6 +29,20 @@
 - 寝言を月2回程度にする確率設計。
 - 寝言の内容の安全範囲。
 
+## AI生成投稿の多様性（似たような投稿ばかりになる問題）
+
+- **症状**: 異なる時間帯に投稿された複数のノートが、文頭・文末・構文パターンがほぼ同じになる。
+  - 例: 「深夜のTL、〜。こういう時間は、〜。私えらいので、今日の〜もちゃんと残しておく。」が3連続で発生。
+- **原因候補**:
+  - systemプロンプトが表現の多様性を指示していない。
+  - 過去投稿履歴を参照しているが、「直近と同じ構文・締め方を避ける」制約が入っていない。
+  - モデル（Chutes Kimi等）が特定の文パターンに収束しやすい傾向を持つ可能性。
+- **対処方針** (chutes-model-compareで評価・改善予定):
+  - systemプロンプトに「直近3〜5件の投稿と異なる書き出し・締め方を使うこと」を明示する。
+  - 過去投稿の文末・書き出しパターンをプロンプトに渡し、それと重複しないよう指示する。
+  - モデルの多様性をchutes-model-compareで比較評価する。
+- **ブロッカー**: 実投稿中であれば見た目の問題。致命的ではないがキャラクター品質に直結する。
+
 ## AI provider・人格チューニング
 
 - 現行のChutes primary / OpenAI fallbackのAI clientを実投稿向けにチューニングする。
@@ -37,10 +51,10 @@
 - 投稿文に「生活ログ」だけが過剰に出ないよう、文脈語彙と話題の分散を調整する。
 - 過去投稿履歴を参照する際、同じ表現や同じ締め方が連続しないようにする。
 - `public` visibilityでよいか、`home` visibilityへ戻すかを運用前に判断する。
-- `.env.local` とGitHub Actionsで次のsecretを設定する。
+- `.env.local` で次のsecretを設定する。
   - `CHUTES_API_KEY`
   - `OPENAI_API_KEY`
-- AI設定値はGitHub Actions variablesではなくDBマスタで管理する。
+- AI設定値は環境変数や外部scheduler variablesではなくDBマスタで管理する。
 - 運用調整値は `m_runtime_setting` に集約済み。
 - AI provider設定の初期値は `m_runtime_setting` へseed済み。
 - P1/P2でAI設定をGUIから編集できる管理画面を作る。
@@ -50,15 +64,14 @@
 - fallbackまで失敗した場合は投稿しない。
 - prompt全文とreasoning本文はログに残さない。
 
-## GitHub ActionsからローカルDockerへの移行
+## ローカルDocker常駐
 
-- 5分ごとの投稿抽選をGitHub ActionsからローカルDockerへ移すか、常駐pollとは別サービスにするか決める。
-- 推奨は、Docker Compose内に `bot` と `post-draw` を分ける方式。
-  - `bot`: 毎分polling、返信、フォロー案内、同意確認。
-  - `post-draw`: 5分ごとの通常ノート投稿抽選。
-- 同一プロセス内timerに戻す場合は、pollと投稿抽選の重複実行ガード、停止方法、ログ分離を再設計する。
-- 移行後も `SCHEDULED_POSTING_ENABLED` 相当の安全スイッチを残す。
-- Actions側のworkflowを停止するタイミングを決める。Docker側と二重起動しないこと。
+- 採用: 単一のDocker常駐 `bot` プロセス内で、毎分pollingと5分ごとの通常ノート投稿抽選を両方実行する。
+  - polling: `POLL_INTERVAL_SECONDS`
+  - post-draw: `POST_DRAW_INTERVAL_SECONDS`
+- pollと投稿抽選は、それぞれ重複実行ガードを持つ。
+- `SCHEDULED_POSTING_ENABLED` を最終安全スイッチとして残す。
+- GitHub Actionsの定期投稿workflowは停止済み。Docker側と二重起動しないこと。
 - ローカルDocker側で5分投稿抽選を動かす場合、PC停止・Docker停止時は投稿されない前提を運用に明記する。
 
 ## マスタ定義
