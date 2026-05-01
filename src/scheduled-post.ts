@@ -2,9 +2,11 @@ import type { DbClient } from "./db/client.js";
 import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
 import { generatePostText } from "./ai/generate-post.js";
+import { generateTlPostText } from "./ai/generate-tl-post.js";
 import { loadRuntimeSettings, readBooleanSetting, readIntegerSetting, readNumberSetting } from "./runtime-settings.js";
+import { runTlScan } from "./tl-scan.js";
 
-type ScheduledPostClient = Pick<MisskeyClient, "createNote">;
+type ScheduledPostClient = Pick<MisskeyClient, "createNote" | "getHomeTimeline">;
 
 export type ScheduledPostDrawOptions = {
   db: DbClient;
@@ -14,6 +16,7 @@ export type ScheduledPostDrawOptions = {
   enabled: boolean;
   random?: () => number;
   generateText?: () => Promise<string | null>;
+  generateTlText?: (summaries: string[]) => Promise<string | null>;
 };
 
 type LatestPostRow = {
@@ -131,6 +134,60 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
       probability: readNumberSetting(runtimeSettings, "POST_PROBABILITY_60_MIN", 0.95)
     }
   ];
+
+  // --- 行動ガチャ: TL観測ノート（排他・同一tick内で通常ノートと競合しない） ---
+  const tlObsProb = readNumberSetting(runtimeSettings, "TL_OBSERVATION_POST_PROBABILITY", 0.20);
+  const tlRoll = (options.random ?? Math.random)();
+
+  if (tlRoll < tlObsProb) {
+    const tlLimit = readIntegerSetting(runtimeSettings, "TL_OBSERVATION_NOTE_COUNT", 20);
+    const minSummaries = readIntegerSetting(runtimeSettings, "TL_OBSERVATION_MIN_POSTS", 3);
+
+    const { summaries } = await runTlScan({
+      db: options.db,
+      client: options.client,
+      logger: options.logger,
+      at: options.at,
+      limit: tlLimit,
+    });
+
+    if (summaries.length >= minSummaries) {
+      const tlGenerateFn =
+        options.generateTlText ??
+        ((s: string[]) =>
+          generateTlPostText({
+            settings: runtimeSettings,
+            summaries: s,
+            at: options.at,
+            chutesApiKey: process.env.CHUTES_API_KEY,
+            openaiApiKey: process.env.OPENAI_API_KEY,
+            logger: options.logger,
+          }));
+      const tlText = await tlGenerateFn(summaries);
+
+      if (tlText) {
+        const visibility = "public";
+        const note = await options.client.createNote({ text: tlText, visibility });
+        await options.db.run(
+          `INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+           VALUES (@noteId, @postedAt, 'tl_observation', @text, @visibility, 'tl_observation_v0', @createdAt)`,
+          { noteId: note.id, postedAt: options.at, text: tlText, visibility, createdAt: options.at }
+        );
+        options.logger.info("tlObservation.posted", { at: options.at, noteId: note.id });
+        return;
+      }
+
+      options.logger.info("tlObservation.skip", { at: options.at, reason: "ai_failure" });
+    } else {
+      options.logger.info("tlObservation.skip", {
+        at: options.at,
+        reason: "too_few_summaries",
+        count: summaries.length,
+      });
+    }
+    // TL観測失敗時は通常ノート抽選に fall-through
+  }
+  // --- end 行動ガチャ ---
 
   const latestPost = await options.db.get<LatestPostRow>(
     `

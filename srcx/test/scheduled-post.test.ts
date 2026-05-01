@@ -16,7 +16,8 @@ describe("runScheduledPostDraw", () => {
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
-      createNote: vi.fn()
+      createNote: vi.fn(),
+      getHomeTimeline: vi.fn(async () => [])
     };
 
     await runScheduledPostDraw({
@@ -38,7 +39,8 @@ describe("runScheduledPostDraw", () => {
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
-      createNote: vi.fn()
+      createNote: vi.fn(),
+      getHomeTimeline: vi.fn(async () => [])
     };
 
     await db.run(
@@ -72,7 +74,8 @@ describe("runScheduledPostDraw", () => {
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
-      createNote: vi.fn()
+      createNote: vi.fn(),
+      getHomeTimeline: vi.fn(async () => [])
     };
 
     await db.run(
@@ -110,7 +113,8 @@ describe("runScheduledPostDraw", () => {
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
-      createNote: vi.fn(async () => ({ id: "posted-note" }))
+      createNote: vi.fn(async () => ({ id: "posted-note" })),
+      getHomeTimeline: vi.fn(async () => [])
     };
 
     await db.run(
@@ -141,7 +145,8 @@ describe("runScheduledPostDraw", () => {
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
-      createNote: vi.fn(async () => ({ id: "posted-note" }))
+      createNote: vi.fn(async () => ({ id: "posted-note" })),
+      getHomeTimeline: vi.fn(async () => [])
     };
 
     await db.run(
@@ -179,7 +184,8 @@ describe("runScheduledPostDraw", () => {
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
-      createNote: vi.fn(async () => ({ id: "posted-note" }))
+      createNote: vi.fn(async () => ({ id: "posted-note" })),
+      getHomeTimeline: vi.fn(async () => [])
     };
 
     await runScheduledPostDraw({

@@ -29,14 +29,16 @@
 - `experience_source_consents` に許可済みユーザーを保存。
 - 「やめて」などのオプトアウトを処理。
 
-### Phase 3: TL観測
+### Phase 3: TL観測（MVP実装）
 
-- ホームタイムライン取得。
-- 個人を特定しないTL観測へ抽象化。
-- AI clientを実装し、Chutes primary / OpenAI fallbackで要約・分類を行う。
-- 安全判定。
-- `tl_observations` に保存。
-- TL観測投稿を生成。
+- `notes/timeline` でホームTL取得（limit=20）。
+- CW・NSFW・空テキスト・pure renoteを除外して `source_notes` に保存（text_summaryのみ、本文全体は保存しない）。
+- TL観測用プロンプト（`generate-tl-post.ts`）でAI生成。
+- 行動ガチャ: 5分tickで「TL観測ノート(20%) OR 通常ノート(既存確率テーブル) OR skip」の排他抽選。
+- TL観測ノートは `posts.kind = 'tl_observation'` で保存。通常ノートの `min_interval` タイマーに影響しない。
+- AI安全分類・`tl_observations` テーブルへの保存はPhase 4で実施。
+- キャラクター仕様をAI間で共通化: `src/ai/character-spec.ts`。
+- API呼び出しを共通化: `src/ai/chat-api.ts`。
 
 ### Phase 4: 体験候補
 

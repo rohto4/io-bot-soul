@@ -62,6 +62,21 @@
 - fallbackまで失敗した場合は投稿しない。
 - prompt全文とreasoning本文はログに残さない。
 
+## TL観測・行動ガチャの暫定値（Phase 3 MVP）
+
+以下は暫定実装した設定値。実投稿の様子を見てDBマスタ（`m_runtime_setting`）で調整する。
+
+| 設定キー | 暫定値 | 意味 | 変更の目安 |
+|---|---|---|---|
+| `TL_OBSERVATION_POST_PROBABILITY` | 0.20 | 5分tickでTL観測ノートを生成する確率 | 少なすぎれば上げる、TLが薄い時間帯は下げる |
+| `TL_OBSERVATION_NOTE_COUNT` | 20 | TL取得ノート数 | TLが活発なら増やす |
+| `TL_OBSERVATION_MIN_POSTS` | 3 | 観測対象が少なすぎる場合のスキップ閾値 | summaryが少ない時間帯に調整 |
+
+- TL観測ノートは `posts.kind = 'tl_observation'` で保存。通常ノートの最短間隔タイマーに影響しない（排他抽選だが時計は分離）。
+- TL観測が当たった回のtickは通常ノート抽選をしない（同一tick内排他）。
+- text_summaryは本文先頭80字。個人特定情報は保存しない（username/hostは保存するが投稿文には使わない）。
+- AI安全分類（`tl_observations`への詳細保存）はPhase 4以降。
+
 ## 5分抽選の動作確認
 
 - **設計**: `postDrawIntervalMs=300000`（5分）ごとに抽選。最短間隔5分・確率5分後10%・30分後80%のため、**平均投稿間隔は約30分**が正常動作。

@@ -1,3 +1,15 @@
+export type MisskeyNote = {
+  id: string;
+  createdAt: string;
+  userId: string;
+  user?: MisskeyUserLite;
+  text?: string | null;
+  cw?: string | null;
+  visibility: string;
+  replyId?: string | null;
+  renoteId?: string | null;
+};
+
 export type MisskeyUserLite = {
   id: string;
   username: string;
@@ -43,6 +55,7 @@ export type MisskeyClient = {
     limit: number;
     sinceId?: string;
   }): Promise<MisskeyReaction[]>;
+  getHomeTimeline(input: { limit: number; sinceId?: string }): Promise<MisskeyNote[]>;
 };
 
 export function createMisskeyClient(options: {
@@ -85,6 +98,7 @@ export function createMisskeyClient(options: {
     },
     createFollowing: (input) => request("following/create", input),
     deleteFollowing: (input) => request("following/delete", input),
-    getNoteReactions: (input) => request("notes/reactions", input)
+    getNoteReactions: (input) => request("notes/reactions", input),
+    getHomeTimeline: (input) => request("notes/timeline", input),
   };
 }
