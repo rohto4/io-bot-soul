@@ -30,7 +30,11 @@ export type MisskeyClient = {
     includeTypes: string[];
     markAsRead: boolean;
   }): Promise<MisskeyNotification[]>;
-  createNote(input: { text: string; replyId?: string }): Promise<{ id: string }>;
+  createNote(input: {
+    text: string;
+    replyId?: string;
+    visibility?: "public" | "home" | "followers" | "specified";
+  }): Promise<{ id: string }>;
   createFollowing(input: { userId: string }): Promise<void>;
   deleteFollowing(input: { userId: string }): Promise<void>;
   getNoteReactions(input: {

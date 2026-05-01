@@ -42,7 +42,13 @@ DATABASE_URL=
 SQLITE_PATH=/app/data/bot.sqlite
 POLL_INTERVAL_SECONDS=60
 POST_DRAW_INTERVAL_SECONDS=300
+SCHEDULED_POSTING_ENABLED=false
+SCHEDULED_POST_MIN_INTERVAL_MINUTES=30
+CHUTES_API_KEY=
+OPENAI_API_KEY=
 ```
+
+AIのmodel id、timeout、token上限、fallback方針などの非secret設定はDBマスタで管理する。
 
 ## `compose.yaml` の想定
 
@@ -79,7 +85,8 @@ npm run scheduled:post-draw
 docker compose run --rm bot node dist/scheduled.js post-draw
 ```
 
-`post-draw` は投稿抽選用の入口で、現時点では投稿生成本体が未実装のため、DB更新とログ出力までを行う。
+`post-draw` は投稿抽選用の入口で、`SCHEDULED_POSTING_ENABLED=true` のときだけ通常ノートを作成する。
+初期値は `false` のため、設定を有効化するまではDB更新とskipログのみを行う。
 GitHub Actionsなどの外部スケジューラからも同じ入口を使う。
 
 注意: GitHub Actions上のSQLiteはローカルDockerの `data/bot.sqlite` とは別物になる。
@@ -87,6 +94,19 @@ GitHub Actionsなどの外部スケジューラからも同じ入口を使う。
 
 Neon/Postgresへ移行した後は、ローカルDockerとGitHub Actionsの両方に同じ `DATABASE_URL` を設定する。
 この場合、SQLiteの `data/bot.sqlite` は使わず、Neon上のPostgresを共有DBとして扱う。
+
+## 定期ノートの有効化
+
+GitHub Actionsで定期ノートを投稿する場合は、repository variablesに次を設定する。
+
+```text
+SCHEDULED_POSTING_ENABLED=true
+SCHEDULED_POST_MIN_INTERVAL_MINUTES=30
+```
+
+`SCHEDULED_POSTING_ENABLED` が `false` または未設定の場合、workflowは成功してもノート投稿は行わない。
+`SCHEDULED_POST_MIN_INTERVAL_MINUTES` は、DB上の直近の通常投稿から何分空けるかを決める。
+初期実装の定期ノートは `home` visibilityで投稿し、`posts.kind = normal`、`generated_reason = scheduled_post_draw_v0` として記録する。
 
 ## 初回起動までの流れ
 

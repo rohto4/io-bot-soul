@@ -56,6 +56,12 @@
 - GitHub Actions limits: https://docs.github.com/en/enterprise-cloud@latest/actions/reference/limits
   - GitHub-hosted runnerのjob実行時間は最大6時間。
   - self-hosted runnerのjob実行時間は最大5日。
+- GitHub Actions checkout: https://github.com/actions/checkout
+  - workflow上でrepositoryをcheckoutする公式Action。
+  - `v6` はNode 24 runtime対応版として参照する。
+- GitHub Actions setup-node: https://github.com/actions/setup-node
+  - workflow上でNode.js環境を用意する公式Action。
+  - `v6` はNode 24 runtime対応版として参照する。
 - Vercel Functions limits: https://vercel.com/docs/functions/limitations
   - Vercel Functionsには実行時間上限がある。
   - Hobbyは最大300秒、Pro/Enterpriseは最大800秒。
@@ -171,6 +177,9 @@
 ### 注意
 
 - GitHub Actions secretsには `DATABASE_PROVIDER`、`DATABASE_URL`、`MISSKEY_TOKEN`、`PINNED_CONSENT_NOTE_ID` を登録する。
+- 定期ノート投稿は、GitHub Actions variablesの `SCHEDULED_POSTING_ENABLED=true` で明示的に有効化する。
+- 初期状態では `false` とし、手動実行でskipログを確認してから有効化する。
+- Actionsの公式ActionはNode 20 runtime deprecation warningを避けるため、`actions/checkout@v6` と `actions/setup-node@v6` を使う。
 - Neonの接続文字列はpooled connection stringを優先する。
 - `pg` が `sslmode=require` に対して将来挙動変更予定の警告を出す。現時点では接続・migration・常駐pollingは成功している。
 
@@ -191,3 +200,35 @@
 - 他者の投稿本文を長期保存・再利用する場合は、引用、要約、公開範囲、削除済み投稿への追従に注意する。
 - 体験ログは「元ノートをコピーする」のではなく、「キャラクターが受け取った刺激や出来事として抽象化する」方針が安全。
 - 投稿生成時は、元ノートの個人情報や文面をそのまま再出力しない。
+
+## 2026-05-01 追記: AI provider設定
+
+### 判断
+
+- AI生成・分類は、Chutesをprimary、OpenAIをfallbackとして扱う。
+- OpenAI fallbackは従量課金API keyを使い、Chutes失敗時の「絶対死守ライン」とする。
+- API keyは `.env.local` とGitHub Actions secretsに置き、Gitには入れない。
+- model id、base URL、timeout、retry、token上限、temperature、日次fallback上限などはDBマスタで管理する。
+- GitHub Actions variablesにはAI設定値を大量登録しない。
+- 初期はmigrationでDBへデフォルト値を投入し、P1/P2でGUI編集に対応する。
+
+### 疎通確認結果
+
+- ChutesのAPI keyは有効。
+- Chutesの `/models` は取得可能。
+- Chutesの `moonshotai/Kimi-K2.5-TEE` は `chat/completions` で疎通成功。
+- `Kimi-K2.5-TEE` だけではChutesのmodel idとして不正。正式IDは `moonshotai/Kimi-K2.5-TEE`。
+- OpenAIのAPI keyは有効。
+- OpenAIの `gpt-5.4-mini` は `chat/completions` で疎通成功。
+
+### 実装上の注意
+
+- ChutesのKimi系モデルは、レスポンスの `usage.reasoning_tokens` と `message.reasoning_content` / `message.reasoning` に内部推論が出ることがある。
+- この `reasoning_tokens` は、こちらが明示的に有効化した設定ではなく、モデルがcompletion側で内部推論として消費するトークン。
+- `max_tokens` が小さいと、内部推論だけで上限に達し、`message.content` が `null` のまま `finish_reason = length` になることがある。
+- Chutes Kimiの分類・短文生成でも、初期値は `max_tokens = 256` 以上を使う。
+- Chutesは `max_tokens` を使う。
+- OpenAIの `gpt-5.4-mini` は `max_tokens` ではなく `max_completion_tokens` を使う。
+- AI client実装では、providerごとにtoken上限パラメータ名を切り替える。
+- `message.content` が空、`null`、JSON parse不能、または `finish_reason = length` の場合は、そのproviderの応答を失敗扱いにしてfallbackする。
+- `message.reasoning_content` はログや投稿文には使わない。

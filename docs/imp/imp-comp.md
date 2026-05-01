@@ -41,8 +41,11 @@
 - `post-draw` 用のワンショットCLIを作成。
 - `npm run scheduled:post-draw` と `npm run scheduled:post-draw:prod` を追加。
 - GitHub Actions workflow `.github/workflows/scheduled-post-draw.yml` を作成。
+- 定期ノート投稿は `SCHEDULED_POSTING_ENABLED` で明示的に有効化する方式にした。
+- 有効化時は直近通常投稿から `SCHEDULED_POST_MIN_INTERVAL_MINUTES` 分以上空いている場合のみ、`home` visibilityで投稿する。
+- 投稿成功時は `posts` に `kind = normal`、`generated_reason = scheduled_post_draw_v0` で記録し、`bot_state.last_note_at` を更新する。
 - workflowは30分ごとのscheduleと手動実行に対応。
-- 現時点では投稿生成本体が未実装のため、`post-draw` はDB状態更新とログ出力までを行う。
+- 現時点の投稿文はAI生成や体験候補参照を行わない固定テンプレートで、体験候補選定と引用Renote連携は未実装。
 
 ## 2026-05-01 Neon/Postgres移行土台
 
@@ -51,3 +54,18 @@
 - Neon用に `pg` を追加。
 - Postgres用schema変換を追加し、`AUTOINCREMENT` をidentity columnへ変換。
 - GitHub Actions workflowで `DATABASE_PROVIDER` と `DATABASE_URL` を読むように変更。
+
+## 2026-05-01 AI provider方針と疎通確認
+
+- AI生成・分類はChutesをprimary、OpenAIをfallbackにする方針を確定。
+- `.env.example` とGitHub Actions workflowには `CHUTES_API_KEY`、`OPENAI_API_KEY` のsecretだけを追加。
+- AI provider、model id、使用量上限、失敗時挙動などの非secret設定はDBマスタ `m_ai_setting` で管理する方針に変更。
+- `m_ai_setting` テーブルと初期値seedを追加。
+- Chutes API keyの疎通を確認。
+- Chutes `/models` の取得を確認。
+- Chutesの正式model idは `moonshotai/Kimi-K2.5-TEE` と確認。
+- Chutes `chat/completions` で `moonshotai/Kimi-K2.5-TEE` の疎通を確認。
+- OpenAI API keyの疎通を確認。
+- OpenAI `gpt-5.4-mini` の疎通を確認。
+- Chutesは `max_tokens`、OpenAI `gpt-5.4-mini` は `max_completion_tokens` が必要と確認。
+- Chutes Kimiは内部推論で `reasoning_tokens` を消費し、token上限が小さいと `content = null` になることを確認。

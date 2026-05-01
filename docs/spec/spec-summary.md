@@ -9,6 +9,7 @@
 - 通知・リプライ・リアクション確認は、MVPでは1分pollingで行う。
 - Misskey Streaming APIは、polling実装が安定した後の改善候補にする。
 - 初期DBはSQLiteを使う。
+- ローカルDocker常駐とGitHub Actionsで状態を共有する段階では、Neon/Postgresを採用する。
 - タイムライン由来の材料は、`tl_observations`、`experience_candidates`、`experience_logs` に分ける。
 - `tl_observations` は、個人を特定しないTL観測として扱う。許可は不要だが、安全判定は必須。
 - `experience_candidates` は、許可済みユーザーの投稿から作る体験候補。まだ体験として記憶しない。
@@ -17,6 +18,11 @@
 - フォロワー投稿を引用RNや体験候補に使う場合は、ピン留めノートへの❤リアクションによる明示同意を取る。
 - プロフィールとピン留めノートに、botの仕組み、参考にする範囲、`/stop`、`/unfollow` を書く。
 - `/stop` はリプライや引用RNなどの接触停止、`/unfollow` はbot側からのフォロー解除とノート参照対象からの除外として扱う。
+- 容姿の基本画像は `images/CoffeeBean_V1_2_2026-04-30-23-42-08.png` を正とし、容姿解釈・画像生成・添付判断で参照する。
+- 定期ノート投稿は `SCHEDULED_POSTING_ENABLED=true` の時だけ行い、初期実投稿は `home` visibilityで開始する。
+- AI生成・分類はChutesをprimary、OpenAIをfallbackとして扱う。
+- AI API keyはsecretとして扱い、provider設定やtoken上限などの非secret設定はDBマスタで管理する。
+- ChutesのKimi系モデルは内部推論で `reasoning_tokens` を消費するため、短文分類でもtoken上限を小さくしすぎない。
 
 ## 仕様ファイル
 

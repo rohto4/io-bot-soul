@@ -43,8 +43,18 @@ describe("createMisskeyClient", () => {
       fetchImpl: fetchImpl as unknown as typeof fetch
     });
 
-    await expect(client.createNote({ text: "hello", replyId: "target-note" })).resolves.toEqual({
+    await expect(
+      client.createNote({ text: "hello", replyId: "target-note", visibility: "home" })
+    ).resolves.toEqual({
       id: "reply-note"
+    });
+
+    const body = JSON.parse(fetchImpl.mock.calls[0][1].body as string);
+    expect(body).toMatchObject({
+      i: "secret",
+      text: "hello",
+      replyId: "target-note",
+      visibility: "home"
     });
   });
 

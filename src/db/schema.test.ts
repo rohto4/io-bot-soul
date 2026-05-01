@@ -15,7 +15,25 @@ describe("migrate", () => {
     expect(tables).toContain("experience_logs");
     expect(tables).toContain("posts");
     expect(tables).toContain("m_emotion_asset");
+    expect(tables).toContain("m_ai_setting");
     expect(await db.get("SELECT COUNT(*) AS count FROM bot_state")).toEqual({ count: 1 });
+  });
+
+  it("seeds AI provider settings", async () => {
+    const db = await createTestDb();
+
+    await expect(
+      db.get("SELECT setting_value, value_type FROM m_ai_setting WHERE setting_key = 'CHUTES_MODEL_TEXT'")
+    ).resolves.toEqual({
+      setting_value: "moonshotai/Kimi-K2.5-TEE",
+      value_type: "string"
+    });
+    await expect(
+      db.get("SELECT setting_value, value_type FROM m_ai_setting WHERE setting_key = 'AI_CLASSIFIER_MAX_TOKENS'")
+    ).resolves.toEqual({
+      setting_value: "300",
+      value_type: "integer"
+    });
   });
 
   it("uses postgres identity columns for autoincrement tables", () => {

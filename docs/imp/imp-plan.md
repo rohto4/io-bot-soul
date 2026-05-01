@@ -33,6 +33,7 @@
 
 - ホームタイムライン取得。
 - 個人を特定しないTL観測へ抽象化。
+- AI clientを実装し、Chutes primary / OpenAI fallbackで要約・分類を行う。
 - 安全判定。
 - `tl_observations` に保存。
 - TL観測投稿を生成。
@@ -41,7 +42,7 @@
 
 - 許可済みユーザーのnoteを優先探索。
 - 許可済みユーザーが見つからない場合、最大10回まで探索。
-- 安全判定。
+- AI分類で危険話題、個人情報、重い話題、揉め事、CW/NSFW相当を除外する。
 - `experience_candidates` に保存。
 - 候補段階では体験記憶にしない。
 
@@ -58,8 +59,20 @@
 - 重複防止。
 - rate limit対応。
 - error backoff。
+- AI使用量の日次上限、fallback使用量上限、失敗時skipを実装。
 - ログ整備。
 - 再起動時の復旧。
+
+### Phase 6.5: AI provider運用
+
+- `.env.local` とGitHub Actions secretsにはAI API keyだけを入れる。
+- provider、model id、timeout、retry、token上限、temperature、日次上限、fallback方針はDBマスタで管理する。
+- Chutesは `moonshotai/Kimi-K2.5-TEE` を初期モデルにする。
+- OpenAI fallbackは `gpt-5.4-mini` を初期モデルにする。
+- 初期値はmigrationでDBへ投入し、P1/P2でGUIから編集できるようにする。
+- providerごとにtoken上限パラメータ名を切り替える。
+- Chutesで `message.content` が空、`finish_reason = length`、JSON parse不能の場合は失敗扱いにしてOpenAIへfallbackする。
+- `message.reasoning` / `message.reasoning_content` はログ本文や投稿に使わない。
 
 ### Phase 7: エモーション画像添付
 

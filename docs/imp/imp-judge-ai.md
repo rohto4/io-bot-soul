@@ -10,6 +10,16 @@ AI判定に通すものと、ロジックで解決するものを分ける。
 - 他者noteの本文をAIへ渡す場合は、必要最小限のテキストにする。
 - 個人情報らしきもの、CW、NSFW、揉め事、病気、事故、政治、医療、投資、成人向け、攻撃的内容はAIへ渡す前に除外する。
 
+## Provider方針
+
+- Primary providerはChutes。
+- Fallback providerはOpenAI。
+- Chutes失敗、timeout、JSON parse不能、`content` 空、`finish_reason = length` の場合はOpenAI fallbackへ回す。
+- OpenAI fallbackまで失敗した場合は投稿しない。
+- ChutesのKimi系モデルは内部推論で `reasoning_tokens` を消費するため、短文分類でもtoken上限を小さくしすぎない。
+- `message.reasoning` / `message.reasoning_content` はログ本文、投稿文、DBの長期保存対象にしない。
+- providerごとの実装差分は [技術スタック判断](../spec/teck-stack.md) を参照する。
+
 ## ロジックで解決するもの
 
 ### 同意・停止

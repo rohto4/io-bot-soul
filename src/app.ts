@@ -2,6 +2,7 @@ import type { DbClient } from "./db/client.js";
 import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
 import { handleConsentReactions, handleFollowProbe, handleReplyProbe } from "./probe.js";
+import { runScheduledPostDraw } from "./scheduled-post.js";
 
 type Clock = () => Date;
 
@@ -18,6 +19,8 @@ export function createBotApp(options: {
     client: MisskeyClient;
     pinnedConsentNoteId: string;
     replyProbeMaxPerPoll: number;
+    scheduledPostingEnabled: boolean;
+    scheduledPostMinIntervalMinutes: number;
   };
   now?: Clock;
 }): BotApp {
@@ -59,6 +62,19 @@ export function createBotApp(options: {
     const at = now().toISOString();
     await options.db.run("UPDATE bot_state SET updated_at = @at WHERE id = 1", { at });
     options.logger.info("postDraw.tick", { at });
+
+    if (!options.misskey) {
+      return;
+    }
+
+    await runScheduledPostDraw({
+      db: options.db,
+      logger: options.logger,
+      client: options.misskey.client,
+      at,
+      enabled: options.misskey.scheduledPostingEnabled,
+      minIntervalMinutes: options.misskey.scheduledPostMinIntervalMinutes
+    });
   }
 
   function start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number }): () => void {

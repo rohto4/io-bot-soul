@@ -1,44 +1,79 @@
 # User Tasks
 
-## Docker常駐起動までの手元準備
+ユーザーが実際に消化する作業と、作業後に見る確認事項を分ける。
 
-- Docker Desktopを起動する。
-- Docker DesktopがWindows起動時に自動起動する設定になっているか確認する。
-- `docker --version` と `docker compose version` が実行できることを確認する。
-- `.env.example` をコピーして `.env.local` を作成する。
-- `.env.local` に `MISSKEY_TOKEN` を設定する。
-- 初回の実機疎通前は、必要に応じて `PINNED_CONSENT_NOTE_ID` を空のままにする。
-- `docker compose build` を実行する。
-- `docker compose up -d` を実行する。
-- `docker compose logs -f bot` で `bot.start`、`poll.tick`、`postDraw.tick` が出ることを確認する。
-- 停止したい場合は `docker compose down` を実行する。
+## 今すぐ必要なタスク
 
-## misskey.ioアカウント準備
-
-- bot用アカウントを作成する。
-- botであることが分かるプロフィールにする。
-- API tokenを発行する。
-- tokenの権限範囲を確認する。
-- tokenは `.env` などローカルsecretに保存し、Gitには入れない。
-
-## プロフィール・ピン留めノート
-
-- プロフィールに、botであること、投稿を参考にする仕組み、オプトアウト方法を書く。
-- ピン留めノートに、許可条件、対象外にする内容、引用する場合があること、取り消し方法を書く。
-- 文面は実装前に最終確認する。
-
-## 運用判断
-
-- 引用Renoteをどの頻度まで許容するか決める。
-- 体験候補にしてよい投稿ジャンルを決める。
-- 絶対に扱わない話題を決める。
-
-## GitHub Actions定期実行の準備
-
+- 未commit差分を確認する。
+- `npm test` を実行する。
+- `npm run build` を実行する。
+- `npm run scheduled:post-draw:prod` を `SCHEDULED_POSTING_ENABLED=false` の状態で実行する。
+- `.env.local` がGitに含まれていないことを確認する。
+- `.env.example` にsecret値が混入していないことを確認する。
+- 変更をcommit/pushする。
 - GitHub repository secretsに `MISSKEY_TOKEN` を登録する。
 - GitHub repository secretsに `PINNED_CONSENT_NOTE_ID` を登録する。
 - GitHub repository secretsに `DATABASE_PROVIDER` を登録する。
 - GitHub repository secretsに `DATABASE_URL` を登録する。
-- 必要ならGitHub repository variablesに `ADMIN_ACCOUNT` を登録する。
-- `.github/workflows/scheduled-post-draw.yml` を有効化して、Actions上で手動実行できることを確認する。
-- Neon/Postgresを使う場合、ローカルDockerとGitHub Actionsの両方に同じ `DATABASE_URL` を設定する。
+- GitHub repository secretsに `CHUTES_API_KEY` を登録する。
+- GitHub repository secretsに `OPENAI_API_KEY` を登録する。
+- GitHub repository variablesに `SCHEDULED_POST_MIN_INTERVAL_MINUTES=30` を登録する。
+- 初回skip確認用に、GitHub repository variablesの `SCHEDULED_POSTING_ENABLED=false` を登録する。
+- GitHub Actionsを手動実行する。
+- skip確認後、GitHub repository variablesの `SCHEDULED_POSTING_ENABLED=true` に変更する。
+- 初回投稿をGitHub Actionsの手動実行で行う。
+
+## 初回投稿後のタスク
+
+- 初回投稿直後に、GitHub Actionsをもう一度手動実行する。
+- 二重投稿されないことを確認したら、30分scheduleをそのまま稼働させる。
+- 問題があれば、GitHub repository variablesの `SCHEDULED_POSTING_ENABLED=false` に戻す。
+- 常駐Docker側で問題があれば `docker compose down` で停止する。
+
+## AI設定の扱い
+
+- GitHubに登録するAI secretは `CHUTES_API_KEY` と `OPENAI_API_KEY` だけにする。
+- AI provider、model id、timeout、retry、token上限、temperature、日次上限、fallback方針はDBマスタで管理する。
+- GitHub repository variablesへAI設定値を大量登録しない。
+- GUIからAI設定を編集できる管理画面はP1/P2で実装する。
+- 初期はmigrationでDBへデフォルト値を投入し、必要ならSQLまたは簡易CLIで更新する。
+
+## 事前確認事項
+
+- Botフラグが付いている。
+- プロフィールまたはピン留めノートに、Bot管理者のmisskey.ioアカウント `@unibell4` が記載されている。
+- プロフィールまたはピン留めノートに、botであること、参照の仕組み、停止方法が書かれている。
+- ピン留め同意ノートが公開され、`PINNED_CONSENT_NOTE_ID` が正しい。
+- Misskey tokenに必要権限がある。
+- Neon/Postgresの `DATABASE_URL` がローカルDockerとGitHub Actionsで同じDBを指している。
+- `docs/spec/base-personal.md` の基本画像参照が [CoffeeBean_V1_2_2026-04-30-23-42-08.png](../../images/CoffeeBean_V1_2_2026-04-30-23-42-08.png) になっている。
+
+## Actions確認事項
+
+- `SCHEDULED_POSTING_ENABLED=false` の手動実行で `scheduledPost.skip` が出る。
+- `SCHEDULED_POSTING_ENABLED=true` に変更する直前に、misskey.io上の直近ノートから30分以上空いている。
+- 初回投稿は自動scheduleではなく手動実行で行う。
+- 初回投稿後、misskey.io上で投稿visibility、文面、連投していないことを確認する。
+- 初回投稿後、Neon DBの `posts.note_id`、`posts.visibility`、`posts.generated_reason`、`bot_state.last_note_at` を確認する。
+- 初回投稿直後の再実行で、`scheduledPost.skip` / `reason = min_interval` が出る。
+
+## 常駐Docker確認事項
+
+- `docker compose logs -f bot` で `poll.tick` が継続している。
+- `postDraw.tick` が出ても、ローカル側の `SCHEDULED_POSTING_ENABLED` がfalseなら投稿されない。
+- リプライ、`/stop`、`/unfollow` の実機挙動が維持されている。
+- ピン留め同意ノートへの❤が `experience_source_consents` に反映される。
+- 異常な連続返信、連続フォロー返し、API errorが出ていない。
+
+## P1として後から対応してよいもの
+
+固定テンプレートの定期ノートに限る場合、以下は実投稿ブロッカーではない。
+
+- 投稿文を性格設定にさらに寄せる調整。
+- エモーション画像添付。
+- AIによる投稿文生成。
+- AI設定GUI。
+- 体験候補、TL観測、引用Renoteとの接続。
+- `m_rate_limit` を使った汎用rate limit実装。
+- `m_safety_rule` と不適切語辞書の本格投入。
+- おはよう / おやすみ / 寝言などの確率設計。

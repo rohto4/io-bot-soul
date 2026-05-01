@@ -375,6 +375,49 @@ CREATE TABLE m_emotion_asset (
 );
 ```
 
+### `m_ai_setting`
+
+AI provider、model id、timeout、retry、token上限、temperature、fallback方針などの非secret設定。
+
+API keyは保存しない。`CHUTES_API_KEY` と `OPENAI_API_KEY` は `.env.local` またはGitHub Actions secretsに置く。
+
+```sql
+CREATE TABLE m_ai_setting (
+  setting_key TEXT PRIMARY KEY,
+  setting_value TEXT NOT NULL,
+  value_type TEXT NOT NULL,
+  description TEXT,
+  updated_at TEXT NOT NULL
+);
+```
+
+初期値候補:
+
+- `AI_PRIMARY_PROVIDER`: `chutes`
+- `AI_FALLBACK_PROVIDER`: `openai`
+- `AI_FALLBACK_ENABLED`: `true`
+- `CHUTES_BASE_URL`: `https://llm.chutes.ai/v1`
+- `CHUTES_MODEL_TEXT`: `moonshotai/Kimi-K2.5-TEE`
+- `CHUTES_MODEL_CLASSIFIER`: `moonshotai/Kimi-K2.5-TEE`
+- `CHUTES_TIMEOUT_MS`: `30000`
+- `CHUTES_MAX_RETRIES`: `1`
+- `OPENAI_BASE_URL`: `https://api.openai.com/v1`
+- `OPENAI_MODEL_TEXT`: `gpt-5.4-mini`
+- `OPENAI_MODEL_CLASSIFIER`: `gpt-5.4-mini`
+- `OPENAI_TIMEOUT_MS`: `30000`
+- `OPENAI_MAX_RETRIES`: `1`
+- `AI_DAILY_MAX_REQUESTS`: `200`
+- `AI_DAILY_MAX_FALLBACK_REQUESTS`: `30`
+- `AI_POST_GENERATION_MAX_TOKENS`: `600`
+- `AI_CLASSIFIER_MAX_TOKENS`: `300`
+- `AI_TEMPERATURE_TEXT`: `0.8`
+- `AI_TEMPERATURE_CLASSIFIER`: `0.0`
+- `AI_REQUIRE_CLASSIFIER_PASS`: `true`
+- `AI_SKIP_POST_ON_AI_FAILURE`: `true`
+- `AI_SKIP_POST_ON_FALLBACK_FAILURE`: `true`
+- `AI_LOG_PROMPT`: `false`
+- `AI_LOG_RESPONSE_SUMMARY`: `true`
+
 ## Indexes
 
 ```sql

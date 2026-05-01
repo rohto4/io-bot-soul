@@ -204,6 +204,14 @@ CREATE TABLE IF NOT EXISTS m_emotion_asset (
   description TEXT
 );
 
+CREATE TABLE IF NOT EXISTS m_ai_setting (
+  setting_key TEXT PRIMARY KEY,
+  setting_value TEXT NOT NULL,
+  value_type TEXT NOT NULL,
+  description TEXT,
+  updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_source_notes_user ON source_notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_status ON experience_candidates(status, picked_at);
 CREATE INDEX IF NOT EXISTS idx_logs_posted_note ON experience_logs(posted_note_id);
@@ -235,4 +243,45 @@ export async function migrate(db: DbClient, provider: DatabaseProvider): Promise
     `,
     { now }
   );
+  await seedAiSettings(db, now);
+}
+
+async function seedAiSettings(db: DbClient, now: string): Promise<void> {
+  const settings = [
+    ["AI_PRIMARY_PROVIDER", "chutes", "string", "Primary AI provider."],
+    ["AI_FALLBACK_PROVIDER", "openai", "string", "Fallback AI provider."],
+    ["AI_FALLBACK_ENABLED", "true", "boolean", "Whether fallback provider can be used."],
+    ["CHUTES_BASE_URL", "https://llm.chutes.ai/v1", "string", "Chutes OpenAI-compatible base URL."],
+    ["CHUTES_MODEL_TEXT", "moonshotai/Kimi-K2.5-TEE", "string", "Chutes model for text generation."],
+    ["CHUTES_MODEL_CLASSIFIER", "moonshotai/Kimi-K2.5-TEE", "string", "Chutes model for classification."],
+    ["CHUTES_TIMEOUT_MS", "30000", "integer", "Chutes request timeout in milliseconds."],
+    ["CHUTES_MAX_RETRIES", "1", "integer", "Chutes retry count."],
+    ["OPENAI_BASE_URL", "https://api.openai.com/v1", "string", "OpenAI base URL."],
+    ["OPENAI_MODEL_TEXT", "gpt-5.4-mini", "string", "OpenAI fallback model for text generation."],
+    ["OPENAI_MODEL_CLASSIFIER", "gpt-5.4-mini", "string", "OpenAI fallback model for classification."],
+    ["OPENAI_TIMEOUT_MS", "30000", "integer", "OpenAI request timeout in milliseconds."],
+    ["OPENAI_MAX_RETRIES", "1", "integer", "OpenAI retry count."],
+    ["AI_DAILY_MAX_REQUESTS", "200", "integer", "Daily maximum AI requests."],
+    ["AI_DAILY_MAX_FALLBACK_REQUESTS", "30", "integer", "Daily maximum fallback provider requests."],
+    ["AI_POST_GENERATION_MAX_TOKENS", "600", "integer", "Maximum text generation tokens."],
+    ["AI_CLASSIFIER_MAX_TOKENS", "300", "integer", "Maximum classifier tokens."],
+    ["AI_TEMPERATURE_TEXT", "0.8", "number", "Text generation temperature."],
+    ["AI_TEMPERATURE_CLASSIFIER", "0.0", "number", "Classifier temperature."],
+    ["AI_REQUIRE_CLASSIFIER_PASS", "true", "boolean", "Whether classifier pass is required before posting."],
+    ["AI_SKIP_POST_ON_AI_FAILURE", "true", "boolean", "Skip posting when AI fails."],
+    ["AI_SKIP_POST_ON_FALLBACK_FAILURE", "true", "boolean", "Skip posting when fallback also fails."],
+    ["AI_LOG_PROMPT", "false", "boolean", "Whether prompt text can be logged."],
+    ["AI_LOG_RESPONSE_SUMMARY", "true", "boolean", "Whether response summaries can be logged."]
+  ];
+
+  for (const [key, value, valueType, description] of settings) {
+    await db.run(
+      `
+      INSERT INTO m_ai_setting (setting_key, setting_value, value_type, description, updated_at)
+      VALUES (@key, @value, @valueType, @description, @updatedAt)
+      ON CONFLICT(setting_key) DO NOTHING
+      `,
+      { key, value, valueType, description, updatedAt: now }
+    );
+  }
 }

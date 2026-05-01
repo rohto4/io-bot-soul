@@ -14,6 +14,11 @@ const envSchema = z.object({
   SQLITE_PATH: z.string().min(1).default("./data/bot.sqlite"),
   POLL_INTERVAL_SECONDS: z.coerce.number().int().min(1).default(60),
   POST_DRAW_INTERVAL_SECONDS: z.coerce.number().int().min(1).default(300),
+  SCHEDULED_POSTING_ENABLED: z
+    .string()
+    .transform((value) => value.toLowerCase() === "true")
+    .default("false"),
+  SCHEDULED_POST_MIN_INTERVAL_MINUTES: z.coerce.number().int().min(1).default(30),
   REPLY_PROBE_MAX_PER_POLL: z.coerce.number().int().min(0).default(1),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info")
 });
@@ -28,6 +33,8 @@ export type BotConfig = {
   sqlitePath: string;
   pollIntervalMs: number;
   postDrawIntervalMs: number;
+  scheduledPostingEnabled: boolean;
+  scheduledPostMinIntervalMinutes: number;
   replyProbeMaxPerPoll: number;
   logLevel: "debug" | "info" | "warn" | "error";
 };
@@ -45,6 +52,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
     sqlitePath: parsed.SQLITE_PATH,
     pollIntervalMs: parsed.POLL_INTERVAL_SECONDS * 1000,
     postDrawIntervalMs: parsed.POST_DRAW_INTERVAL_SECONDS * 1000,
+    scheduledPostingEnabled: parsed.SCHEDULED_POSTING_ENABLED,
+    scheduledPostMinIntervalMinutes: parsed.SCHEDULED_POST_MIN_INTERVAL_MINUTES,
     replyProbeMaxPerPoll: parsed.REPLY_PROBE_MAX_PER_POLL,
     logLevel: parsed.LOG_LEVEL
   };
