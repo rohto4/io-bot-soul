@@ -4,13 +4,26 @@
 
 ## 今すぐ必要なタスク
 
-- 未commit差分を確認する。
+- 未commit差分を確認し、セッション引き継ぎ用のdocs更新をcommit/pushする。
 - `npm test` を実行する。
 - `npm run build` を実行する。
 - `npm run scheduled:post-draw:prod` を `SCHEDULED_POSTING_ENABLED=false` の状態で実行する。
 - `.env.local` がGitに含まれていないことを確認する。
 - `.env.example` にsecret値が混入していないことを確認する。
-- 変更をcommit/pushする。
+
+## 次セッションのP0タスク
+
+- 生成された実際のノート文を数件確認し、`base-personal.md` とズレる表現を列挙する。
+- BOT自認、生活感、Misskey高校・家・図書館・ラボの文脈を、AI promptへどう入れるか決める。
+- `public` visibilityを継続するか、`home` visibilityへ戻すか決める。
+- GitHub ActionsからローカルDockerへ投稿抽選を移す方式を決める。
+  - 推奨: Docker Composeで `bot` と `post-draw` を別サービス化。
+  - 代替: 1つの常駐プロセス内にpoll timerとpost-draw timerを戻す。
+- ローカルDocker移行後、GitHub Actionsの5分scheduleを停止するタイミングを決める。
+- Docker常駐側で `poll.tick`、リプライ、`/stop`、`/unfollow`、❤同意確認が維持されることを実機確認する。
+
+## GitHub Actions運用タスク
+
 - GitHub repository secretsに `MISSKEY_TOKEN` を登録する。
 - GitHub repository secretsに `PINNED_CONSENT_NOTE_ID` を登録する。
 - GitHub repository secretsに `DATABASE_PROVIDER` を登録する。

@@ -86,7 +86,7 @@ flowchart TD
   E -- Yes --> G[投稿確率を計算]
   G --> H{抽選に当たる?}
   H -- No --> I[skip: probability]
-  H -- Yes --> J[home visibilityで通常ノート投稿]
+  H -- Yes --> J[public visibilityで通常ノート投稿]
 ```
 
 ## 設定変更の考え方

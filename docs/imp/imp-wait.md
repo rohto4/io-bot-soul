@@ -29,9 +29,14 @@
 - 寝言を月2回程度にする確率設計。
 - 寝言の内容の安全範囲。
 
-## AI provider実装
+## AI provider・人格チューニング
 
-- Chutes primary / OpenAI fallbackのAI clientを実装する。
+- 現行のChutes primary / OpenAI fallbackのAI clientを実投稿向けにチューニングする。
+- `base-personal.md` の人格・口調・自認が、生成文に自然に反映されているか実投稿前に確認する。
+- BOT自認は「必要な時はAIと認めるが、通常ノートでは人間として生活しているように振る舞う」へ寄せる。
+- 投稿文に「生活ログ」だけが過剰に出ないよう、文脈語彙と話題の分散を調整する。
+- 過去投稿履歴を参照する際、同じ表現や同じ締め方が連続しないようにする。
+- `public` visibilityでよいか、`home` visibilityへ戻すかを運用前に判断する。
 - `.env.local` とGitHub Actionsで次のsecretを設定する。
   - `CHUTES_API_KEY`
   - `OPENAI_API_KEY`
@@ -44,6 +49,17 @@
 - `content` が空、`null`、JSON parse不能、または `finish_reason = length` の場合は、そのproviderの応答を失敗扱いにする。
 - fallbackまで失敗した場合は投稿しない。
 - prompt全文とreasoning本文はログに残さない。
+
+## GitHub ActionsからローカルDockerへの移行
+
+- 5分ごとの投稿抽選をGitHub ActionsからローカルDockerへ移すか、常駐pollとは別サービスにするか決める。
+- 推奨は、Docker Compose内に `bot` と `post-draw` を分ける方式。
+  - `bot`: 毎分polling、返信、フォロー案内、同意確認。
+  - `post-draw`: 5分ごとの通常ノート投稿抽選。
+- 同一プロセス内timerに戻す場合は、pollと投稿抽選の重複実行ガード、停止方法、ログ分離を再設計する。
+- 移行後も `SCHEDULED_POSTING_ENABLED` 相当の安全スイッチを残す。
+- Actions側のworkflowを停止するタイミングを決める。Docker側と二重起動しないこと。
+- ローカルDocker側で5分投稿抽選を動かす場合、PC停止・Docker停止時は投稿されない前提を運用に明記する。
 
 ## マスタ定義
 
