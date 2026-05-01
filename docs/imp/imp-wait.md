@@ -29,38 +29,20 @@
 - 寝言を月2回程度にする確率設計。
 - 寝言の内容の安全範囲。
 
-## AI生成投稿の多様性（似たような投稿ばかりになる問題）
+## AI生成投稿の多様性
 
-- **症状**: 異なる時間帯に投稿された複数のノートが、文頭・文末・構文パターンがほぼ同じになる。
-  - 例: 「深夜のTL、〜。こういう時間は、〜。私えらいので、今日の〜もちゃんと残しておく。」が3連続で発生。
-- **原因**: `src/ai/generate-post.ts` の systemPrompt に多様性指示がなく、userMessage も過去投稿を「参照」としか伝えていなかった。
-- **2026-05-02対処済み**:
-  - systemPrompt に「多様性ルール」セクションを追加（直前と同じ書き出し・締め方禁止、特定フレーズの3連続禁止）。
-  - userMessage に「直前3件の書き出し・締め方パターン」を明示して回避指示を追加。
-- **残課題** (chutes-model-compareで評価):
+- 多様性ルール・直前パターン提示・tiered記憶参照は2026-05-02に実装済み。
+- **残課題** (chutes-model-compareで評価予定):
   - モデルごとの多様性をベンチマーク比較する。
   - temperatureや表現ジャンルの指示をさらに調整する。
 
 ## AI provider・人格チューニング
 
-- 現行のChutes primary / OpenAI fallbackのAI clientを実投稿向けにチューニングする。
-- `base-personal.md` の人格・口調・自認が、生成文に自然に反映されているか実投稿前に確認する。
-- BOT自認は「必要な時はAIと認めるが、通常ノートでは人間として生活しているように振る舞う」へ寄せる。
-- 投稿文に「生活ログ」だけが過剰に出ないよう、文脈語彙と話題の分散を調整する。
-- 過去投稿履歴を参照する際、同じ表現や同じ締め方が連続しないようにする。
-- `public` visibilityでよいか、`home` visibilityへ戻すかを運用前に判断する。
-- `.env.local` で次のsecretを設定する。
-  - `CHUTES_API_KEY`
-  - `OPENAI_API_KEY`
-- AI設定値は環境変数や外部scheduler variablesではなくDBマスタで管理する。
-- 運用調整値は `m_runtime_setting` に集約済み。
-- AI provider設定の初期値は `m_runtime_setting` へseed済み。
+- Chutes primary / OpenAI fallbackは実装済み。character-spec.ts / chat-api.tsで共通化済み。
+- `base-personal.md` の人格・口調が生成文に反映されているか運用しながら確認する。
+- BOT自認（通常ノートでは人間として振る舞う）のprompt反映は継続調整中。
+- `public` visibilityを継続するか `home` に戻すかは運用判断。
 - P1/P2でAI設定をGUIから編集できる管理画面を作る。
-- Chutesは `max_tokens`、OpenAI `gpt-5.4-mini` は `max_completion_tokens` を使う。
-- Chutes Kimiは内部推論で `reasoning_tokens` を消費するため、分類でも `max_tokens=256` 以上を初期値にする。
-- `content` が空、`null`、JSON parse不能、または `finish_reason = length` の場合は、そのproviderの応答を失敗扱いにする。
-- fallbackまで失敗した場合は投稿しない。
-- prompt全文とreasoning本文はログに残さない。
 
 ## TL観測・行動ガチャの暫定値（Phase 3 MVP）
 
@@ -77,23 +59,10 @@
 - text_summaryは本文先頭80字。個人特定情報は保存しない（username/hostは保存するが投稿文には使わない）。
 - AI安全分類（`tl_observations`への詳細保存）はPhase 4以降。
 
-## 5分抽選の動作確認
+## 5分抽選・フォロー返し・リプライの動作確認
 
-- **設計**: `postDrawIntervalMs=300000`（5分）ごとに抽選。最短間隔5分・確率5分後10%・30分後80%のため、**平均投稿間隔は約30分**が正常動作。
-- **確認が必要な点**:
-  - `.env.local` の `SCHEDULED_POSTING_ENABLED=true` になっているか。
-  - Docker常駐ログで `postDraw.tick` が5分ごとに出ているか。
-  - `scheduledPost.posted` が出ているか、またはどの理由でskipされているか。
-- **確認コマンド**: `docker compose logs -f bot | grep -E "postDraw|scheduledPost"`
-
-## リプライ・フォロー返しの実機確認
-
-- **実装状況**: `src/probe.ts` にフォロー返し・リプライ返信・❤同意確認が実装済み。
-- **未確認**: Docker起動中にこれらが実際に動いているかどうかの実機テストが未実施。
-- **確認方法**:
-  - `docker compose logs -f bot | grep -E "follow|reply|consent"` でログを確認。
-  - テスト用アカウントからフォロー・リプライを送り、Botが反応するか確認。
-  - `PINNED_CONSENT_NOTE_ID` が `.env.local` に正しく設定されているか確認。
+- 5分抽選・フォロー返し・リプライは実装済みで実機動作を確認済み（2026-05-02）。
+- `docker compose logs -f bot | grep -E "postDraw|scheduledPost|follow|reply|consent"` でログを確認。
 
 ## ローカルDocker常駐
 

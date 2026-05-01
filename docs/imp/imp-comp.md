@@ -75,6 +75,34 @@
 - Postgres用schema変換を追加し、`AUTOINCREMENT` をidentity columnへ変換。
 - GitHub Actions workflowで `DATABASE_PROVIDER` と `DATABASE_URL` を読むように変更。
 
+## 2026-05-02 AI投稿プロンプト改善
+
+- systemPrompt冒頭を「Misskey高校・家・図書館・ラボ・商店街・ゲーセン・近所の河原を拠点に生活」に変更。TL観測ログBot固定から脱却。
+- 多様性ルールを追加（直前と同じ書き出し・締め方禁止、特定フレーズ3連続禁止）。
+- userMessageに直前3件の書き出し・締め方パターンを明示して回避指示。
+- 投稿例を全削除（バイアス源だったため）。
+- 過去投稿参照を時間重みづけtiered samplingに変更（直近7日全量・7〜30日3件おき・30〜60日10件おき）をSQL CTE一本で実現。
+- 過去投稿への文脈フレームを追加。
+- `src/ai/character-spec.ts` でキャラクター仕様を共通化。
+- `src/ai/chat-api.ts` でAI API呼び出し・fallbackロジックを共通化。
+
+## 2026-05-02 Phase 3: TL観測ノート・行動ガチャ・引用RN
+
+- `src/tl-scan.ts` 実装: ホームTL取得（limit=20）・CW/renote/空テキスト除外・`source_notes` 保存・`bot_state.last_timeline_scan_at` 更新。
+- `src/ai/generate-tl-post.ts` 実装: TL観測ベースの投稿生成（個人特定なし・かなめの観察視点ルール付き）。
+- `src/quote-pick.ts` 実装: 許可済みユーザーから引用候補を選定。
+  - 1週間以内のノートのみ対象。
+  - 構造フィルタ（CW/reply/renote/非公開除外）後にAI安全判定を実施。
+- `src/ai/classify-quote-safety.ts` 実装: 医療・政治・個人情報等をNG判定するバイナリ分類プロンプト（maxTokens=5、temperature=0.0）。判定失敗はNG扱い。
+- `src/ai/generate-quote-post.ts` 実装: 引用に添えるコメント生成（1〜2文）。
+- `src/scheduled-post.ts` に行動ガチャを追加:
+  - TL観測20%（当たり → TL観測ノート or 引用RN）
+  - 引用RN 20%（TL観測内の1/5 = 全体4%）
+  - TL観測外れ → 通常ノート抽選（既存確率テーブル）
+- `src/misskey/client.ts` に `getHomeTimeline` / `getUserNotes` / `createNote.renoteId` を追加。
+- テスト47件通過（tl-scan.test.ts 新規追加含む）。
+- Misskey API調査: 複数ユーザーID一括ノート取得APIは存在しない。`users/notes` は単一userId専用。
+
 ## 2026-05-02 OpenCode / oh-my-openagent グローバル設定整備
 
 - グローバル `~/.config/opencode/opencode.json` に plugin エントリ・Chutes プロバイダー定義・デフォルトモデル設定がなく、io-bot-soul 以外のすべての PJ で oh-my-openagent と Chutes が動作しない状態だったことを特定した。

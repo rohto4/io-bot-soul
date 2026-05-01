@@ -4,93 +4,52 @@
 
 ## 今すぐ必要なタスク
 
-- `docker compose logs -f bot | grep -E "postDraw|scheduledPost"` で5分抽選が動いているか確認する。
-- `docker compose logs -f bot | grep -E "follow|reply|consent"` でリプライ・フォロー返しのログを確認する。
-- テスト用アカウントからフォローとリプライを送り、Botが反応するか実機確認する。
-- `.env.local` の `SCHEDULED_POSTING_ENABLED=true` になっているか確認する。
-- `.env.local` に `PINNED_CONSENT_NOTE_ID` が設定されているか確認する。
+- `docker compose up -d --build` を実行してコード変更をコンテナに反映する。
+- 反映後 `docker compose logs -f bot | grep -E "postDraw|tlScan|tlObservation|quoteRenote"` で新しい行動ガチャが動いているか確認する。
 
 ## 次セッションのP0タスク
 
-- **多様性改善の効果確認**: promptを修正済み（2026-05-02）。次の数件の投稿で文体・書き出しが変わったか確認する。まだ似ていたら chutes-model-compare でモデル・temperature・表現指示を調整する。
-- 生成された実際のノート文を数件確認し、`base-personal.md` とズレる表現を列挙する。
-- BOT自認、生活感、Misskey高校・家・図書館・ラボの文脈を、AI promptへどう入れるか決める。
+- **投稿の多様性確認**: 最近の投稿文体が変わったか確認する。まだ偏りがあれば chutes-model-compare でモデル・temperature を調整する。
+- **TL観測・引用RNの実動作確認**: `tlObservation.posted` / `quoteRenote.posted` / `quotePick.found` / `quotePick.unsafe` がログに出るか確認する。
+- **Phase 4 着手判断**: 体験候補蓄積フロー（`experience_candidates`）の実装可否をユーザーが判断する。
 - `public` visibilityを継続するか、`home` visibilityへ戻すか決める。
 
-## TL観測・体験候補（P1）
+## Docker常駐確認事項
 
-- TL取得 → `source_notes` への保存処理が未実装。`generate-post.ts` は `source_notes` を読もうとするが常に空。
-- Phase 3（TL観測）を実装するまでは、AIの入力として「タイムラインの文脈」は使えない。
-
-## Docker常駐運用タスク
-
-- `.env.local` に `POST_DRAW_INTERVAL_SECONDS=300` を設定する。
-- `.env.local` に `SCHEDULED_POSTING_ENABLED=false` を設定した状態で `docker compose up -d --build` を実行する。
-- `docker compose logs -f bot` で `poll.tick` と `scheduledPost.skip reason=disabled` を確認する。
-- skip確認後、`.env.local` の `SCHEDULED_POSTING_ENABLED=true` に変更する。
-- `docker compose restart bot` で反映する。
-- 初回投稿はDocker常駐のpost-drawタイマーで行い、直後に二重投稿されないことをログとDBで確認する。
-
-## 初回投稿後のタスク
-
-- 初回投稿直後に、`npm run scheduled:post-draw:prod` または次のDocker post-draw tickで `min_interval` skipになることを確認する。
-- 二重投稿されないことを確認したら、Docker常駐をそのまま稼働させる。
-- 問題があれば、`.env.local` の `SCHEDULED_POSTING_ENABLED=false` に戻して `docker compose restart bot` を実行する。
-- 常駐Docker側で問題があれば `docker compose down` で停止する。
+- `docker compose logs -f bot` で `poll.tick` が継続している。
+- `postDraw.tick` が5分ごとに出ている。
+- `scheduledPost.posted` または `tlObservation.posted` または `quoteRenote.posted` が出ている（または適切な理由でskip）。
+- リプライ、`/stop`、`/unfollow` の実機挙動が維持されている。
+- ピン留め同意ノートへの❤が `experience_source_consents` に反映される。
+- 異常な連続返信、連続フォロー返し、API errorが出ていない。
 
 ## AI設定の扱い
 
 - `.env.local` に登録するAI secretは `CHUTES_API_KEY` と `OPENAI_API_KEY` だけにする。
 - 投稿確率、最短投稿間隔、AI provider、model id、timeout、retry、token上限、temperature、日次上限、fallback方針はDBマスタ `m_runtime_setting` で管理する。
-- GitHub repository variablesへ運用調整値を大量登録しない。
-- GUIからAI設定を編集できる管理画面はP1/P2で実装する。
-- 初期はmigrationでDBへデフォルト値を投入し、必要ならSQLまたは簡易CLIで更新する。
+- 主な暫定値（`m_runtime_setting` で変更可）:
+
+```sql
+SELECT setting_key, setting_value, description
+FROM m_runtime_setting
+WHERE category IN ('scheduling','timeline','experience','ai')
+ORDER BY category, setting_key;
+```
 
 ## 事前確認事項
 
 - Botフラグが付いている。
 - プロフィールまたはピン留めノートに、Bot管理者のmisskey.ioアカウント `@unibell4` が記載されている。
-- プロフィールまたはピン留めノートに、botであること、参照の仕組み、停止方法が書かれている。
 - ピン留め同意ノートが公開され、`PINNED_CONSENT_NOTE_ID` が正しい。
 - Misskey tokenに必要権限がある。
 - Neon/Postgresの `DATABASE_URL` がローカルDockerから正しいDBを指している。
-- `DATABASE_URL` のSSL指定は、可能なら `sslmode=verify-full` にしてpgの将来警告を避ける。
-- `docs/spec/base-personal.md` の基本画像参照が [CoffeeBean_V1_2_2026-04-30-23-42-08.png](../../images/CoffeeBean_V1_2_2026-04-30-23-42-08.png) になっている。
-- `m_runtime_setting` を次のSQLで確認できる。
 
-```sql
-SELECT category, setting_key, setting_value, value_type, description
-FROM m_runtime_setting
-ORDER BY category, setting_key;
-```
+## P1以降として後から対応してよいもの
 
-## 定期投稿確認事項
-
-- `SCHEDULED_POSTING_ENABLED=false` のDocker常駐ログで `scheduledPost.skip` が出る。
-- `SCHEDULED_POSTING_ENABLED=true` に変更する直前に、misskey.io上の直近ノートから5分以上空いている。
-- 5分以上30分未満の場合は投稿抽選に入るが、確率は低めでskipされることがある。
-- 初回投稿はDocker常駐のpost-drawタイマーで行う。
-- 初回投稿後、misskey.io上で投稿visibility、文面、連投していないことを確認する。
-- 初回投稿後、Neon DBの `posts.note_id`、`posts.visibility`、`posts.generated_reason`、`bot_state.last_note_at` を確認する。
-- 初回投稿直後の再実行で、`scheduledPost.skip` / `reason = min_interval` が出る。
-
-## 常駐Docker確認事項
-
-- `docker compose logs -f bot` で `poll.tick` が継続している。
-- Docker常駐側では `poll.tick` が毎分出る。定期投稿抽選は `postDraw.tick` と `scheduledPost.*` のログで見る。
-- リプライ、`/stop`、`/unfollow` の実機挙動が維持されている。
-- ピン留め同意ノートへの❤が `experience_source_consents` に反映される。
-- 異常な連続返信、連続フォロー返し、API errorが出ていない。
-
-## P1として後から対応してよいもの
-
-固定テンプレートの定期ノートに限る場合、以下は実投稿ブロッカーではない。
-
-- 投稿文を性格設定にさらに寄せる調整。
-- エモーション画像添付。
-- AIによる投稿文生成。
-- AI設定GUI。
-- 体験候補、TL観測、引用Renoteとの接続。
-- `m_rate_limit` を使った汎用rate limit実装。
-- `m_safety_rule` と不適切語辞書の本格投入。
-- おはよう / おやすみ / 寝言などの確率設計。
+- Phase 3 残: `tl_observations` テーブルへの詳細保存・AI分類記録。
+- Phase 4: 体験候補の蓄積フロー（`experience_candidates`）。
+- Phase 5: 体験投稿と記憶化（`experience_logs`）。
+- Phase 6: rate limit・error backoff・AI日次上限。
+- Phase 7: エモーション画像添付。
+- AI設定GUI（管理画面）。
+- おはよう / おやすみ / 寝言の確率設計。
