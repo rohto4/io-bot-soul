@@ -22,6 +22,7 @@
 - 定期ノート投稿は `SCHEDULED_POSTING_ENABLED=true` の時だけ行い、初期実投稿は `home` visibilityで開始する。
 - 定期ノートは直近通常投稿から5分未満なら必ずskipし、5分以上なら確率抽選に入る。
 - 投稿確率の目安は5分後10%、10分後15%、30分後80%、1時間超95%。
+- 投稿実行ルールと投稿内容ルールは、Mermaidフロー付きの専用仕様に分離する。
 - AI生成・分類はChutesをprimary、OpenAIをfallbackとして扱う。
 - AI API keyはsecretとして扱い、投稿確率、最短投稿間隔、provider設定やtoken上限などの非secret設定はDBマスタ `m_runtime_setting` で管理する。
 - ChutesのKimi系モデルは内部推論で `reasoning_tokens` を消費するため、短文分類でもtoken上限を小さくしすぎない。
@@ -33,6 +34,8 @@
 - `memory-db.md`: 疑似生活ログ、記憶、処理済みID、投稿履歴を保存するDB方針。
 - `db-schema.md`: SQLiteの初期schema案。rate limit、同意、TL観測、体験候補、体験記憶、投稿履歴を定義。
 - `emotion-assets.md`: `images/` 配下のエモーション画像を投稿に添付するP1/P2仕様。
+- `posting-runtime-rules.md`: 投稿できる時間、skip条件、安全スイッチ、DB調整値を定義。
+- `posting-content-rules.md`: 投稿される内容タイプ、現行テンプレート、将来候補、確率を定義。
 - `consent-experience-strategy.md`: フォロワー同意に基づいて投稿を疑似生活体験へ変換する戦略。
   - TL観測として個人を特定せず「何々をしている人がいた、いいなー」と扱う場合は許可不要。ただし安全判定は必須。
 - `release-readiness.md`: 公開運用前の必須ゲートとリリース可否判断。

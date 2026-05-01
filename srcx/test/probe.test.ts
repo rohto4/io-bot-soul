@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+﻿import { describe, expect, it, vi } from "vitest";
 import {
   buildProbeReply,
   buildFollowGuide,
@@ -7,8 +7,8 @@ import {
   handleReplyProbe,
   mention,
   parseReplyCommand
-} from "./probe.js";
-import type { MisskeyClient } from "./misskey/client.js";
+} from "../../src/probe.js";
+import type { MisskeyClient } from "../../src/misskey/client.js";
 import { createTestDb } from "./test-db.js";
 
 function logger() {

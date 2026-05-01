@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBotApp } from "./app.js";
+﻿import { afterEach, describe, expect, it, vi } from "vitest";
+import { createBotApp } from "../../src/app.js";
 import { createTestDb } from "./test-db.js";
 
 describe("createBotApp", () => {

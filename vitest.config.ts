@@ -10,7 +10,8 @@ export default defineConfig({
         "src/main.ts",
         "src/scheduled.ts",
         "src/db/client.ts",
-        "src/db/migrate.ts"
+        "src/db/migrate.ts",
+        "srcx/test/**"
       ],
       reporter: ["text", "lcov"],
       thresholds: {
@@ -20,6 +21,6 @@ export default defineConfig({
         statements: 80
       }
     },
-    include: ["src/**/*.test.ts"]
+    include: ["srcx/test/**/*.test.ts"]
   }
 });

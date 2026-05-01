@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { canUseUserAsExperienceSource } from "./consent.js";
+﻿import { describe, expect, it } from "vitest";
+import { canUseUserAsExperienceSource } from "../../src/consent.js";
 import { createTestDb } from "./test-db.js";
-import type { DbClient } from "./db/client.js";
+import type { DbClient } from "../../src/db/client.js";
 
 async function createDb(): Promise<DbClient> {
   const db = await createTestDb();

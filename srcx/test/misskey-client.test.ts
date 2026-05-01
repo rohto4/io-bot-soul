@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { createMisskeyClient } from "./client.js";
+﻿import { describe, expect, it, vi } from "vitest";
+import { createMisskeyClient } from "../../src/misskey/client.js";
 
 describe("createMisskeyClient", () => {
   it("sends the token as i in the request body", async () => {

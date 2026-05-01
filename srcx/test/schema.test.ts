@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { createTestDb } from "../test-db.js";
-import { schemaSql } from "./schema.js";
+﻿import { describe, expect, it } from "vitest";
+import { createTestDb } from "./test-db.js";
+import { schemaSql } from "../../src/db/schema.js";
 
 describe("migrate", () => {
   it("creates core bot tables and seed state", async () => {

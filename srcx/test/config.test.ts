@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { loadConfig } from "./config.js";
+﻿import { describe, expect, it } from "vitest";
+import { loadConfig } from "../../src/config.js";
 
 describe("loadConfig", () => {
   it("loads valid bot config with numeric intervals", () => {

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { calculateScheduledPostProbability, runScheduledPostDraw } from "./scheduled-post.js";
+﻿import { describe, expect, it, vi } from "vitest";
+import { calculateScheduledPostProbability, runScheduledPostDraw } from "../../src/scheduled-post.js";
 import { createTestDb } from "./test-db.js";
 
 function createLogger() {

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { parseMode } from "./scheduled.js";
+﻿import { describe, expect, it } from "vitest";
+import { parseMode } from "../../src/scheduled.js";
 
 describe("scheduled CLI", () => {
   it("parses post-draw mode", () => {
