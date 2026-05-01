@@ -1,6 +1,7 @@
 import type { DbClient } from "../db/client.js";
 import type { Logger } from "../logger.js";
 import type { RuntimeSettings } from "../runtime-settings.js";
+import type { NoteHint } from "../note-hint.js";
 import {
   readBooleanSetting,
   readIntegerSetting,
@@ -28,7 +29,7 @@ function formatPost(post: PostRow, maxLen: number): string {
   return `${date}: ${text}`;
 }
 
-function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]): string {
+function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[], hint?: NoteHint): string {
   const jstHour = (new Date(at).getUTCHours() + 9) % 24;
   const lines: string[] = [`現在時刻: ${at}（JST目安 ${jstHour}時台）`];
 
@@ -75,8 +76,16 @@ function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]
     }
   }
 
-  lines.push("");
-  lines.push("ノートを1つ生成してください。");
+  if (hint) {
+    lines.push("");
+    lines.push("## 今回のノートのヒント（お題の種・口調の向き）");
+    lines.push(`お題の種: ${hint.topic}`);
+    lines.push(`口調の向き: ${hint.tone}`);
+    lines.push("これをヒントにかなめとしてノートを1つ書いてください。ヒントをそのまま言葉にするのではなく、自然に織り込んでください。");
+  } else {
+    lines.push("");
+    lines.push("ノートを1つ生成してください。");
+  }
   return lines.join("\n");
 }
 
@@ -87,6 +96,7 @@ export async function generatePostText(options: {
   chutesApiKey: string | undefined;
   openaiApiKey: string | undefined;
   logger: Logger;
+  hint?: NoteHint;
 }): Promise<string | null> {
   const { settings, db, at, logger } = options;
 
@@ -138,7 +148,7 @@ export async function generatePostText(options: {
 
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
-    { role: "user", content: buildUserMessage(at, pastPosts, tlNotes) },
+    { role: "user", content: buildUserMessage(at, pastPosts, tlNotes, options.hint) },
   ];
 
   return callAiWithFallback(

@@ -14,6 +14,8 @@ import {
 import { runTlScan } from "./tl-scan.js";
 import { pickQuoteCandidate } from "./quote-pick.js";
 import type { QuoteCandidate } from "./quote-pick.js";
+import { drawNoteHint } from "./note-hint.js";
+import type { NoteHint } from "./note-hint.js";
 
 type ScheduledPostClient = Pick<MisskeyClient, "createNote" | "getHomeTimeline" | "getUserNotes">;
 
@@ -90,7 +92,7 @@ export function calculateScheduledPostProbability(input: {
 // ─── Phase 1: ガチャ ──────────────────────────────────────────────────
 
 type DrawSkip = { tag: "skip"; reason: string; meta?: Record<string, unknown> };
-type DrawAction = { tag: "quote_rn" } | { tag: "tl_obs" } | { tag: "normal" };
+type DrawAction = { tag: "quote_rn" } | { tag: "tl_obs" } | { tag: "normal"; hint: NoteHint };
 type DrawResult = DrawSkip | DrawAction;
 
 function drawAction(
@@ -131,7 +133,7 @@ function drawAction(
     }
   }
 
-  return { tag: "normal" };
+  return { tag: "normal", hint: drawNoteHint(rand) };
 }
 
 // ─── Phase 2: 取得 ────────────────────────────────────────────────────
@@ -139,7 +141,7 @@ function drawAction(
 type FetchSkip = { tag: "skip"; reason: string };
 type FetchQuoteRn = { tag: "quote_rn"; candidate: QuoteCandidate; summaries: string[] };
 type FetchTlObs = { tag: "tl_obs"; summaries: string[] };
-type FetchNormal = { tag: "normal" };
+type FetchNormal = { tag: "normal"; hint: NoteHint };
 type FetchResult = FetchSkip | FetchQuoteRn | FetchTlObs | FetchNormal;
 
 async function fetchData(
@@ -148,7 +150,7 @@ async function fetchData(
   options: ScheduledPostDrawOptions,
   rand: () => number
 ): Promise<FetchResult> {
-  if (draw.tag === "normal") return { tag: "normal" };
+  if (draw.tag === "normal") return { tag: "normal", hint: draw.hint };
 
   // TL スキャン（quote_rn / tl_obs 共通）
   const tlLimit = readIntegerSetting(settings, "TL_OBSERVATION_NOTE_COUNT", 20);
@@ -283,6 +285,7 @@ async function generateAndPost(
         chutesApiKey: process.env.CHUTES_API_KEY,
         openaiApiKey: process.env.OPENAI_API_KEY,
         logger: options.logger,
+        hint: fetch.hint,
       }));
 
   const aiText = await generateFn();
