@@ -168,6 +168,9 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
               db: options.db,
               client: options.client,
               logger: options.logger,
+              settings: runtimeSettings,
+              chutesApiKey: process.env.CHUTES_API_KEY,
+              openaiApiKey: process.env.OPENAI_API_KEY,
               at: options.at,
               random: options.random,
             }));
