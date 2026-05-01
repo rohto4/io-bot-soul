@@ -45,8 +45,10 @@ export type MisskeyClient = {
   createNote(input: {
     text: string;
     replyId?: string;
+    renoteId?: string;
     visibility?: "public" | "home" | "followers" | "specified";
   }): Promise<{ id: string }>;
+  getUserNotes(input: { userId: string; limit: number }): Promise<MisskeyNote[]>;
   createFollowing(input: { userId: string }): Promise<void>;
   deleteFollowing(input: { userId: string }): Promise<void>;
   getNoteReactions(input: {
@@ -100,5 +102,6 @@ export function createMisskeyClient(options: {
     deleteFollowing: (input) => request("following/delete", input),
     getNoteReactions: (input) => request("notes/reactions", input),
     getHomeTimeline: (input) => request("notes/timeline", input),
+    getUserNotes: (input) => request("users/notes", input),
   };
 }

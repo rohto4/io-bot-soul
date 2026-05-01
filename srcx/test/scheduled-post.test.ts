@@ -17,7 +17,8 @@ describe("runScheduledPostDraw", () => {
     const logger = createLogger();
     const client = {
       createNote: vi.fn(),
-      getHomeTimeline: vi.fn(async () => [])
+      getHomeTimeline: vi.fn(async () => []),
+      getUserNotes: vi.fn(async () => [])
     };
 
     await runScheduledPostDraw({
@@ -40,7 +41,8 @@ describe("runScheduledPostDraw", () => {
     const logger = createLogger();
     const client = {
       createNote: vi.fn(),
-      getHomeTimeline: vi.fn(async () => [])
+      getHomeTimeline: vi.fn(async () => []),
+      getUserNotes: vi.fn(async () => [])
     };
 
     await db.run(
@@ -75,7 +77,8 @@ describe("runScheduledPostDraw", () => {
     const logger = createLogger();
     const client = {
       createNote: vi.fn(),
-      getHomeTimeline: vi.fn(async () => [])
+      getHomeTimeline: vi.fn(async () => []),
+      getUserNotes: vi.fn(async () => [])
     };
 
     await db.run(
@@ -114,7 +117,8 @@ describe("runScheduledPostDraw", () => {
     const logger = createLogger();
     const client = {
       createNote: vi.fn(async () => ({ id: "posted-note" })),
-      getHomeTimeline: vi.fn(async () => [])
+      getHomeTimeline: vi.fn(async () => []),
+      getUserNotes: vi.fn(async () => [])
     };
 
     await db.run(
@@ -146,7 +150,8 @@ describe("runScheduledPostDraw", () => {
     const logger = createLogger();
     const client = {
       createNote: vi.fn(async () => ({ id: "posted-note" })),
-      getHomeTimeline: vi.fn(async () => [])
+      getHomeTimeline: vi.fn(async () => []),
+      getUserNotes: vi.fn(async () => [])
     };
 
     await db.run(
@@ -185,7 +190,8 @@ describe("runScheduledPostDraw", () => {
     const logger = createLogger();
     const client = {
       createNote: vi.fn(async () => ({ id: "posted-note" })),
-      getHomeTimeline: vi.fn(async () => [])
+      getHomeTimeline: vi.fn(async () => []),
+      getUserNotes: vi.fn(async () => [])
     };
 
     await runScheduledPostDraw({

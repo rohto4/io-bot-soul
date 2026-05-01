@@ -73,7 +73,8 @@ describe("TL observation action lottery", () => {
     ];
     const client = {
       createNote: vi.fn(async () => ({ id: "tl-note" })),
-      getHomeTimeline: vi.fn(async () => tlNotes)
+      getHomeTimeline: vi.fn(async () => tlNotes),
+      getUserNotes: vi.fn(async () => [])
     };
 
     await runScheduledPostDraw({
@@ -91,13 +92,50 @@ describe("TL observation action lottery", () => {
     expect(post?.kind).toBe("tl_observation");
   });
 
+  it("posts a quote_renote when candidate is found (quoteRoll < quoteProb)", async () => {
+    const { runScheduledPostDraw } = await import("../../src/scheduled-post.js");
+    const db = await createTestDb();
+    const logger = createLogger();
+    const tlNotes = [
+      { id: "n1", createdAt: "2026-05-01T10:00:00Z", userId: "u1", user: { id: "u1", username: "a" }, text: "ノート1", cw: null, visibility: "public", replyId: null, renoteId: null },
+      { id: "n2", createdAt: "2026-05-01T10:01:00Z", userId: "u2", user: { id: "u2", username: "b" }, text: "ノート2", cw: null, visibility: "public", replyId: null, renoteId: null },
+      { id: "n3", createdAt: "2026-05-01T10:02:00Z", userId: "u3", user: { id: "u3", username: "c" }, text: "ノート3", cw: null, visibility: "public", replyId: null, renoteId: null },
+    ];
+    const client = {
+      createNote: vi.fn(async () => ({ id: "qrn-note" })),
+      getHomeTimeline: vi.fn(async () => tlNotes),
+      getUserNotes: vi.fn(async () => [])
+    };
+    const quoteCandidate = { noteId: "source-note", text: "引用元のノート本文", userId: "u1" };
+
+    await runScheduledPostDraw({
+      db, logger, client,
+      at: "2026-05-01T12:00:00Z",
+      enabled: true,
+      // tlRoll=0.1 < 0.20 → TL観測当たり, quoteRoll=0.1 < 0.20 → 引用RN当たり
+      random: () => 0.1,
+      pickQuote: async () => quoteCandidate,
+      generateQuoteText: async () => "これ気になった。"
+    });
+
+    expect(client.createNote).toHaveBeenCalledWith(
+      expect.objectContaining({ renoteId: "source-note" })
+    );
+    const post = await db.get<{ kind: string; quote_source_note_id: string }>(
+      "SELECT kind, quote_source_note_id FROM posts LIMIT 1"
+    );
+    expect(post?.kind).toBe("quote_renote");
+    expect(post?.quote_source_note_id).toBe("source-note");
+  });
+
   it("falls through to normal post when TL has too few summaries", async () => {
     const { runScheduledPostDraw } = await import("../../src/scheduled-post.js");
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
       createNote: vi.fn(async () => ({ id: "normal-note" })),
-      getHomeTimeline: vi.fn(async () => []) // 空 → too_few_summaries
+      getHomeTimeline: vi.fn(async () => []), // 空 → too_few_summaries
+      getUserNotes: vi.fn(async () => [])
     };
 
     await runScheduledPostDraw({

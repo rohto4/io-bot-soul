@@ -3,10 +3,12 @@ import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
 import { generatePostText } from "./ai/generate-post.js";
 import { generateTlPostText } from "./ai/generate-tl-post.js";
+import { generateQuotePostText } from "./ai/generate-quote-post.js";
 import { loadRuntimeSettings, readBooleanSetting, readIntegerSetting, readNumberSetting } from "./runtime-settings.js";
 import { runTlScan } from "./tl-scan.js";
+import { pickQuoteCandidate } from "./quote-pick.js";
 
-type ScheduledPostClient = Pick<MisskeyClient, "createNote" | "getHomeTimeline">;
+type ScheduledPostClient = Pick<MisskeyClient, "createNote" | "getHomeTimeline" | "getUserNotes">;
 
 export type ScheduledPostDrawOptions = {
   db: DbClient;
@@ -17,6 +19,8 @@ export type ScheduledPostDrawOptions = {
   random?: () => number;
   generateText?: () => Promise<string | null>;
   generateTlText?: (summaries: string[]) => Promise<string | null>;
+  generateQuoteText?: (noteText: string) => Promise<string | null>;
+  pickQuote?: () => Promise<{ noteId: string; text: string; userId: string } | null>;
 };
 
 type LatestPostRow = {
@@ -152,6 +156,69 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
     });
 
     if (summaries.length >= minSummaries) {
+      // --- 引用RN分岐: TL観測の1/5を引用RNに割り当て ---
+      const quoteProb = readNumberSetting(runtimeSettings, "QUOTE_RENOTE_PROBABILITY", 0.20);
+      const quoteRoll = (options.random ?? Math.random)();
+
+      if (quoteRoll < quoteProb) {
+        const quoteFn =
+          options.pickQuote ??
+          (() =>
+            pickQuoteCandidate({
+              db: options.db,
+              client: options.client,
+              logger: options.logger,
+              at: options.at,
+              random: options.random,
+            }));
+        const candidate = await quoteFn();
+
+        if (candidate) {
+          const quoteGenerateFn =
+            options.generateQuoteText ??
+            ((noteText: string) =>
+              generateQuotePostText({
+                settings: runtimeSettings,
+                noteText,
+                at: options.at,
+                chutesApiKey: process.env.CHUTES_API_KEY,
+                openaiApiKey: process.env.OPENAI_API_KEY,
+                logger: options.logger,
+              }));
+          const quoteText = await quoteGenerateFn(candidate.text);
+
+          if (quoteText) {
+            const visibility = "public";
+            const note = await options.client.createNote({
+              text: quoteText,
+              renoteId: candidate.noteId,
+              visibility,
+            });
+            await options.db.run(
+              `INSERT INTO posts (note_id, posted_at, kind, text, visibility, quote_source_note_id, generated_reason, created_at)
+               VALUES (@noteId, @postedAt, 'quote_renote', @text, @visibility, @sourceNoteId, 'quote_renote_v0', @createdAt)`,
+              {
+                noteId: note.id,
+                postedAt: options.at,
+                text: quoteText,
+                visibility,
+                sourceNoteId: candidate.noteId,
+                createdAt: options.at,
+              }
+            );
+            options.logger.info("quoteRenote.posted", {
+              at: options.at,
+              noteId: note.id,
+              sourceNoteId: candidate.noteId,
+            });
+            return;
+          }
+        }
+        // 候補なし or AI失敗 → TL観測テキストにfall-through
+        options.logger.info("quoteRenote.skip", { at: options.at, reason: "fallback_to_tl_obs" });
+      }
+      // --- end 引用RN分岐 ---
+
       const tlGenerateFn =
         options.generateTlText ??
         ((s: string[]) =>
