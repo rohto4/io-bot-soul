@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { DbClient } from "../db/client.js";
 import type { Logger } from "../logger.js";
 import type { RuntimeSettings } from "../runtime-settings.js";
@@ -8,81 +11,86 @@ import {
   readStringSetting
 } from "../runtime-settings.js";
 
-type RecentPostRow = { text: string; posted_at: string };
-type SourceNoteRow = { text_summary: string; note_created_at: string };
+type PostRow = { text: string; posted_at: string };
+type TlNoteRow = { text_summary: string; note_created_at: string };
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-const systemPrompt = `あなたはMisskey.ioで活動するボットです。
-タイムラインを観察し、気になったことを「生活ログ」として記録・投稿しています。
+// docs/ から仕様セクションを取得（マーカーで範囲指定）
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(moduleDir, "../..");
 
-キャラクター:
-- 好奇心があるが、テンションは落ち着いている
-- 観察が好きで、記録することに価値を見出している
-- 自分の観測範囲の狭さをときどき自覚している
-- Misskey.io内にいることを自然に受け入れている
+function readDocSection(relPath: string, startMarker: string, endMarker?: string): string {
+  try {
+    const content = readFileSync(join(repoRoot, relPath), "utf8");
+    const startIdx = content.indexOf(startMarker);
+    if (startIdx === -1) return "";
+    const endIdx = endMarker ? content.indexOf(endMarker, startIdx + startMarker.length) : -1;
+    return (endIdx === -1 ? content.slice(startIdx) : content.slice(startIdx, endIdx)).trim();
+  } catch {
+    return "";
+  }
+}
 
-文体ルール:
-- ですます体は使わない（「〜している」「〜だった」「〜かもしれない」など）
-- 感嘆符（！）は使わない
-- 絵文字は使わない
-- 改行は1〜2文ごとに入れる
-- 短めの投稿：2〜3行、全体で40〜80字程度
-- 長めの投稿：4〜6行、全体で150〜200字程度
-- どちらを選ぶかは自由（長めは全体の1/4程度の頻度で）
+// base-personal.md から 性格口調 テーブルと採用要約を抽出
+const personalitySpec = readDocSection(
+  "docs/spec/base-personal.md",
+  "【性格口調】",
+  "【容姿・ふるまい】"
+);
+const characterSummary = readDocSection(
+  "docs/spec/base-personal.md",
+  "## 採用要約",
+  "## Q&A"
+);
 
-よく出てくる言葉・概念:
-生活ログ、記録、観察、タイムライン、体験候補
-「〜悪くない」「〜かもしれない」「〜と思ってる」「まあいいや」
+const systemPrompt = [
+  "あなたは「涼凪かなめ」です。Misskey.ioで活動するキャラクターで、タイムラインを観察し、気になったことを「生活ログ」として記録・投稿しています。",
+  "",
+  "## キャラクター仕様（性格・口調）",
+  personalitySpec,
+  "",
+  "## キャラクターサマリー",
+  characterSummary,
+  "",
+  "## ノートのフォーマット",
+  "- 改行は1〜2文ごとに入れる（Misskey.ioはスペースが広いので読みやすい）",
+  "- 短めの投稿：2〜3行（40〜80字程度）、全体の3/4程度の頻度",
+  "- 長めの投稿：4〜6行（150〜200字程度）、全体の1/4程度の頻度",
+  "",
+  "## 投稿してはいけない内容",
+  "- 個人情報・他者のノート本文のコピー・paste",
+  "- 重い話題・医療・投資・政治・攻撃的内容・CW・NSFW",
+  "",
+  "## 投稿例（短め）",
+  "生活ログを確認してる。\n今日は面白いノートがいくつかあった。\nいい感じ。",
+  "",
+  "## 投稿例（長め）",
+  "さっきから面白い流れのノートを追ってた。\n生活ログに記録しようとしたら、\nいつの間にか全然別の話になってた。\nこういうの、記録の脱線って言うんだろうか。\nまあいいや、全部残しておく。\n余白は多い方がいいと思ってる。",
+  "",
+  "ノートのテキストのみを出力してください。前置きや説明は不要です。"
+]
+  .filter((s) => s !== undefined)
+  .join("\n");
 
-投稿例（短め）:
-生活ログを確認してる。
-今日は面白いノートがいくつかあった。
-いい感じ。
-
----
-
-体験候補リストに新しいのを追加した。
-行けるかどうかはまだわからないけど、
-候補があるだけで気持ちが少し動く感じがある。
-生活ログに「いつか行きたい」が増えていくの、
-なんか悪くないな、と思ってる。
-
-投稿例（長め）:
-生活ログを眺めてたら、ひとつのノートが気になって、
-そこから関連するのをいくつか引っ張ってきた。
-こういうふうに広がるの、わりと好きかもしれない。
-
----
-
-さっきから面白い流れのノートを追ってた。
-生活ログに記録しようとしたら、
-いつの間にか全然別の話になってた。
-こういうの、記録の脱線って言うんだろうか。
-まあいいや、全部残しておく。
-余白は多い方がいいと思ってる。
-
-ノートのテキストのみを出力してください。前置きや説明は不要です。`;
-
-function buildUserMessage(
-  at: string,
-  recentPosts: RecentPostRow[],
-  recentTlNotes: SourceNoteRow[]
-): string {
+function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]): string {
   const jstHour = (new Date(at).getUTCHours() + 9) % 24;
-  const lines: string[] = [`現在時刻: ${at} (JST目安 ${jstHour}時台)`];
+  const lines: string[] = [`現在時刻: ${at}（JST目安 ${jstHour}時台）`];
 
-  if (recentPosts.length > 0) {
+  if (pastPosts.length > 0) {
     lines.push("");
-    lines.push("最近の自分の投稿（繰り返しを避けるために参照）:");
-    for (const post of recentPosts) {
-      lines.push(`- ${post.text.replace(/\n/g, " ").slice(0, 60)}`);
+    lines.push(`## 自分の過去の投稿（記憶として参照、直近${pastPosts.length}件）`);
+    // 古い順に並べて LLM が時系列で読めるようにする
+    for (const post of [...pastPosts].reverse()) {
+      const date = post.posted_at.slice(0, 16);
+      const text = post.text.replace(/\n/g, "｜").slice(0, 100);
+      lines.push(`${date}: ${text}`);
     }
   }
 
-  if (recentTlNotes.length > 0) {
+  if (tlNotes.length > 0) {
     lines.push("");
-    lines.push("最近のタイムラインのノート（参考）:");
-    for (const note of recentTlNotes) {
+    lines.push("## 最近のタイムラインのノート（参考）");
+    for (const note of tlNotes) {
       lines.push(`- ${note.text_summary.slice(0, 80)}`);
     }
   }
@@ -100,6 +108,7 @@ async function callChatApi(options: {
   maxTokens: number;
   temperature: number;
   timeoutMs: number;
+  maxTokensField: "max_tokens" | "max_completion_tokens";
 }): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs);
@@ -114,7 +123,7 @@ async function callChatApi(options: {
       body: JSON.stringify({
         model: options.model,
         messages: options.messages,
-        max_tokens: options.maxTokens,
+        [options.maxTokensField]: options.maxTokens,
         temperature: options.temperature
       }),
       signal: controller.signal
@@ -144,16 +153,18 @@ export async function generatePostText(options: {
 }): Promise<string | null> {
   const { settings, db, at, logger } = options;
 
-  const recentPosts = await db.all<RecentPostRow>(
-    "SELECT text, posted_at FROM posts WHERE kind = 'normal' ORDER BY posted_at DESC LIMIT 5"
+  // 過去投稿を多めに読み込む（デフォルト100件）
+  const historyLimit = Math.max(1, readIntegerSetting(settings, "AI_POST_HISTORY_LIMIT", 100));
+  const pastPosts = await db.all<PostRow>(
+    `SELECT text, posted_at FROM posts WHERE kind = 'normal' ORDER BY posted_at DESC LIMIT ${historyLimit}`
   );
-  const recentTlNotes = await db.all<SourceNoteRow>(
+  const tlNotes = await db.all<TlNoteRow>(
     "SELECT text_summary, note_created_at FROM source_notes WHERE text_summary IS NOT NULL ORDER BY note_created_at DESC LIMIT 10"
   );
 
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
-    { role: "user", content: buildUserMessage(at, recentPosts, recentTlNotes) }
+    { role: "user", content: buildUserMessage(at, pastPosts, tlNotes) }
   ];
 
   const maxTokens = readIntegerSetting(settings, "AI_POST_GENERATION_MAX_TOKENS", 600);
@@ -168,7 +179,16 @@ export async function generatePostText(options: {
       const model = readStringSetting(settings, "CHUTES_MODEL_TEXT", "moonshotai/Kimi-K2.5-TEE");
       const timeoutMs = readIntegerSetting(settings, "CHUTES_TIMEOUT_MS", 30000);
       try {
-        const text = await callChatApi({ baseUrl, apiKey: options.chutesApiKey, model, messages, maxTokens, temperature, timeoutMs });
+        const text = await callChatApi({
+          baseUrl,
+          apiKey: options.chutesApiKey,
+          model,
+          messages,
+          maxTokens,
+          temperature,
+          timeoutMs,
+          maxTokensField: "max_tokens"
+        });
         if (text) {
           logger.info("generatePost.done", { provider: "chutes", model });
           return text;
@@ -190,7 +210,16 @@ export async function generatePostText(options: {
       const model = readStringSetting(settings, "OPENAI_MODEL_TEXT", "gpt-4o-mini");
       const timeoutMs = readIntegerSetting(settings, "OPENAI_TIMEOUT_MS", 30000);
       try {
-        const text = await callChatApi({ baseUrl, apiKey: options.openaiApiKey, model, messages, maxTokens, temperature, timeoutMs });
+        const text = await callChatApi({
+          baseUrl,
+          apiKey: options.openaiApiKey,
+          model,
+          messages,
+          maxTokens,
+          temperature,
+          timeoutMs,
+          maxTokensField: "max_completion_tokens"
+        });
         if (text) {
           logger.info("generatePost.done", { provider: "openai", model });
           return text;
