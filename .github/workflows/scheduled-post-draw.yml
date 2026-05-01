@@ -3,7 +3,7 @@ name: Scheduled Post Draw
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/5 * * * *"
 
 concurrency:
   group: scheduled-post-draw

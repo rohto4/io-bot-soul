@@ -47,7 +47,7 @@
 - `SCHEDULED_POST_MIN_INTERVAL_MINUTES` と投稿確率はDBマスタ `m_runtime_setting` へ移した。
 - リプライ・フォロー・リアクション監視の処理上限も `m_runtime_setting` へ移した。
 - 投稿成功時は `posts` に `kind = normal`、`generated_reason = scheduled_post_draw_v0` で記録し、`bot_state.last_note_at` を更新する。
-- workflowは30分ごとのscheduleと手動実行に対応。
+- workflowは5分ごとのscheduleと手動実行に対応。
 - 現時点の投稿文はAI生成や体験候補参照を行わない固定テンプレートで、体験候補選定と引用Renote連携は未実装。
 
 ## 2026-05-01 Neon/Postgres移行土台

@@ -87,6 +87,7 @@ docker compose run --rm bot node dist/scheduled.js post-draw
 `post-draw` は投稿抽選用の入口で、`SCHEDULED_POSTING_ENABLED=true` のときだけ通常ノートを作成する。
 初期値は `false` のため、設定を有効化するまではDB更新とskipログのみを行う。
 GitHub Actionsなどの外部スケジューラからも同じ入口を使う。
+GitHub Actionsの `Scheduled Post Draw` は5分ごとにこの入口を実行し、投稿するかどうかを抽選する。
 
 注意: GitHub Actions上のSQLiteはローカルDockerの `data/bot.sqlite` とは別物になる。
 投稿履歴や体験ログを共有したい段階では、永続DBをGitHub Actionsからも参照できる構成へ移す必要がある。

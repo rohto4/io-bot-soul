@@ -25,7 +25,7 @@
 ## 初回投稿後のタスク
 
 - 初回投稿直後に、GitHub Actionsをもう一度手動実行する。
-- 二重投稿されないことを確認したら、30分scheduleをそのまま稼働させる。
+- 二重投稿されないことを確認したら、5分scheduleをそのまま稼働させる。
 - 問題があれば、GitHub repository variablesの `SCHEDULED_POSTING_ENABLED=false` に戻す。
 - 常駐Docker側で問題があれば `docker compose down` で停止する。
 
