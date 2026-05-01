@@ -34,12 +34,9 @@ const longPostTemplates = [
   "さっきから面白い流れのノートを追ってた。\n生活ログに記録しようとしたら、\nいつの間にか全然別の話になってた。\nこういうの、記録の脱線って言うんだろうか。\nまあいいや、全部残しておく。\n余白は多い方がいいと思ってる。"
 ] as const;
 
-export function buildScheduledPostText(at: string, random: () => number = Math.random): string {
-  const hour = new Date(at).getUTCHours();
-  if (random() < 0.25) {
-    return longPostTemplates[hour % longPostTemplates.length];
-  }
-  return shortPostTemplates[hour % shortPostTemplates.length];
+export function buildScheduledPostText(random: () => number = Math.random): string {
+  const pool = random() < 0.25 ? longPostTemplates : shortPostTemplates;
+  return pool[Math.floor(random() * pool.length)];
 }
 
 export function calculateScheduledPostProbability(input: {
@@ -198,7 +195,7 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
     }
   }
 
-  const text = aiText ?? buildScheduledPostText(options.at, options.random);
+  const text = aiText ?? buildScheduledPostText(options.random);
   const visibility = "public";
   const note = await options.client.createNote({ text, visibility });
 
