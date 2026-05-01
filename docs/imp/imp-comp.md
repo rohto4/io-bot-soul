@@ -42,7 +42,8 @@
 - `npm run scheduled:post-draw` と `npm run scheduled:post-draw:prod` を追加。
 - GitHub Actions workflow `.github/workflows/scheduled-post-draw.yml` を作成。
 - 定期ノート投稿は `SCHEDULED_POSTING_ENABLED` で明示的に有効化する方式にした。
-- 有効化時は直近通常投稿から `SCHEDULED_POST_MIN_INTERVAL_MINUTES` 分以上空いている場合のみ、`home` visibilityで投稿する。
+- 有効化時は直近通常投稿から `SCHEDULED_POST_MIN_INTERVAL_MINUTES` 分以上空いている場合に投稿抽選へ入る。
+- 投稿確率は経過時間で上がり、目安は5分後10%、10分後15%、30分後80%、1時間超95%。
 - 投稿成功時は `posts` に `kind = normal`、`generated_reason = scheduled_post_draw_v0` で記録し、`bot_state.last_note_at` を更新する。
 - workflowは30分ごとのscheduleと手動実行に対応。
 - 現時点の投稿文はAI生成や体験候補参照を行わない固定テンプレートで、体験候補選定と引用Renote連携は未実装。

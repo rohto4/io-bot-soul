@@ -18,7 +18,7 @@ const envSchema = z.object({
     .string()
     .transform((value) => value.toLowerCase() === "true")
     .default("false"),
-  SCHEDULED_POST_MIN_INTERVAL_MINUTES: z.coerce.number().int().min(1).default(30),
+  SCHEDULED_POST_MIN_INTERVAL_MINUTES: z.coerce.number().int().min(1).default(5),
   REPLY_PROBE_MAX_PER_POLL: z.coerce.number().int().min(0).default(1),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info")
 });

@@ -11,6 +11,7 @@ export type ScheduledPostDrawOptions = {
   at: string;
   enabled: boolean;
   minIntervalMinutes: number;
+  random?: () => number;
 };
 
 type LatestPostRow = {
@@ -27,6 +28,44 @@ const scheduledPostTemplates = [
 export function buildScheduledPostText(at: string): string {
   const hour = new Date(at).getUTCHours();
   return scheduledPostTemplates[hour % scheduledPostTemplates.length];
+}
+
+export function calculateScheduledPostProbability(input: {
+  elapsedMinutes: number;
+  minIntervalMinutes: number;
+}): number {
+  if (input.elapsedMinutes < input.minIntervalMinutes) {
+    return 0;
+  }
+
+  if (input.elapsedMinutes <= 5) {
+    return 0.1;
+  }
+
+  if (input.elapsedMinutes <= 10) {
+    return interpolate(input.elapsedMinutes, 5, 10, 0.1, 0.15);
+  }
+
+  if (input.elapsedMinutes <= 30) {
+    return interpolate(input.elapsedMinutes, 10, 30, 0.15, 0.8);
+  }
+
+  if (input.elapsedMinutes <= 60) {
+    return interpolate(input.elapsedMinutes, 30, 60, 0.8, 0.95);
+  }
+
+  return 0.95;
+}
+
+function interpolate(
+  value: number,
+  fromValue: number,
+  toValue: number,
+  fromProbability: number,
+  toProbability: number
+): number {
+  const progress = (value - fromValue) / (toValue - fromValue);
+  return fromProbability + (toProbability - fromProbability) * progress;
 }
 
 export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): Promise<void> {
@@ -49,11 +88,30 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
 
   if (latestPost) {
     const elapsedMs = new Date(options.at).getTime() - new Date(latestPost.posted_at).getTime();
+    const elapsedMinutes = elapsedMs / 60 / 1000;
     if (elapsedMs < options.minIntervalMinutes * 60 * 1000) {
       options.logger.info("scheduledPost.skip", {
         at: options.at,
         reason: "min_interval",
         latestPostedAt: latestPost.posted_at
+      });
+      return;
+    }
+
+    const probability = calculateScheduledPostProbability({
+      elapsedMinutes,
+      minIntervalMinutes: options.minIntervalMinutes
+    });
+    const draw = (options.random ?? Math.random)();
+
+    if (draw >= probability) {
+      options.logger.info("scheduledPost.skip", {
+        at: options.at,
+        reason: "probability",
+        latestPostedAt: latestPost.posted_at,
+        elapsedMinutes,
+        probability,
+        draw
       });
       return;
     }

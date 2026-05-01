@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runScheduledPostDraw } from "./scheduled-post.js";
+import { calculateScheduledPostProbability, runScheduledPostDraw } from "./scheduled-post.js";
 import { createTestDb } from "./test-db.js";
 
 function createLogger() {
@@ -25,7 +25,7 @@ describe("runScheduledPostDraw", () => {
       client,
       at: "2026-05-01T00:00:00.000Z",
       enabled: false,
-      minIntervalMinutes: 30
+      minIntervalMinutes: 5
     });
 
     expect(client.createNote).not.toHaveBeenCalled();
@@ -35,7 +35,42 @@ describe("runScheduledPostDraw", () => {
     });
   });
 
-  it("skips posting when the latest normal post is inside the minimum interval", async () => {
+  it("skips posting when the latest normal post is inside the hard minimum interval", async () => {
+    const db = await createTestDb();
+    const logger = createLogger();
+    const client = {
+      createNote: vi.fn()
+    };
+
+    await db.run(
+      `
+      INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+      VALUES (@noteId, @postedAt, 'normal', 'recent', 'home', 'test', @postedAt)
+      `,
+      {
+        noteId: "recent-note",
+        postedAt: "2026-05-01T00:27:00.000Z"
+      }
+    );
+
+    await runScheduledPostDraw({
+      db,
+      logger,
+      client,
+      at: "2026-05-01T00:30:00.000Z",
+      enabled: true,
+      minIntervalMinutes: 5
+    });
+
+    expect(client.createNote).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith("scheduledPost.skip", {
+      at: "2026-05-01T00:30:00.000Z",
+      reason: "min_interval",
+      latestPostedAt: "2026-05-01T00:27:00.000Z"
+    });
+  });
+
+  it("skips posting by probability after the hard minimum interval", async () => {
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
@@ -59,15 +94,50 @@ describe("runScheduledPostDraw", () => {
       client,
       at: "2026-05-01T00:30:00.000Z",
       enabled: true,
-      minIntervalMinutes: 30
+      minIntervalMinutes: 5,
+      random: () => 0.9
     });
 
     expect(client.createNote).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith("scheduledPost.skip", {
       at: "2026-05-01T00:30:00.000Z",
-      reason: "min_interval",
-      latestPostedAt: "2026-05-01T00:20:00.000Z"
+      reason: "probability",
+      latestPostedAt: "2026-05-01T00:20:00.000Z",
+      elapsedMinutes: 10,
+      probability: 0.15,
+      draw: 0.9
     });
+  });
+
+  it("can post by probability after the hard minimum interval", async () => {
+    const db = await createTestDb();
+    const logger = createLogger();
+    const client = {
+      createNote: vi.fn(async () => ({ id: "posted-note" }))
+    };
+
+    await db.run(
+      `
+      INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+      VALUES (@noteId, @postedAt, 'normal', 'recent', 'home', 'test', @postedAt)
+      `,
+      {
+        noteId: "recent-note",
+        postedAt: "2026-05-01T00:20:00.000Z"
+      }
+    );
+
+    await runScheduledPostDraw({
+      db,
+      logger,
+      client,
+      at: "2026-05-01T00:30:00.000Z",
+      enabled: true,
+      minIntervalMinutes: 5,
+      random: () => 0.1
+    });
+
+    expect(client.createNote).toHaveBeenCalledTimes(1);
   });
 
   it("creates a home note and records it when posting is enabled", async () => {
@@ -83,7 +153,7 @@ describe("runScheduledPostDraw", () => {
       client,
       at: "2026-05-01T12:00:00.000Z",
       enabled: true,
-      minIntervalMinutes: 30
+      minIntervalMinutes: 5
     });
 
     expect(client.createNote).toHaveBeenCalledWith({
@@ -100,5 +170,26 @@ describe("runScheduledPostDraw", () => {
     await expect(db.get("SELECT last_note_at FROM bot_state WHERE id = 1")).resolves.toEqual({
       last_note_at: "2026-05-01T12:00:00.000Z"
     });
+  });
+
+  it("calculates a low probability before the full probability interval", () => {
+    expect(
+      calculateScheduledPostProbability({
+        elapsedMinutes: 5,
+        minIntervalMinutes: 5
+      })
+    ).toBeCloseTo(0.1);
+    expect(
+      calculateScheduledPostProbability({
+        elapsedMinutes: 30,
+        minIntervalMinutes: 5
+      })
+    ).toBeCloseTo(0.8);
+    expect(
+      calculateScheduledPostProbability({
+        elapsedMinutes: 60,
+        minIntervalMinutes: 5
+      })
+    ).toBeCloseTo(0.95);
   });
 });

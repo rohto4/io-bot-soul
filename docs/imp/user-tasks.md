@@ -17,7 +17,7 @@
 - GitHub repository secretsに `DATABASE_URL` を登録する。
 - GitHub repository secretsに `CHUTES_API_KEY` を登録する。
 - GitHub repository secretsに `OPENAI_API_KEY` を登録する。
-- GitHub repository variablesに `SCHEDULED_POST_MIN_INTERVAL_MINUTES=30` を登録する。
+- GitHub repository variablesに `SCHEDULED_POST_MIN_INTERVAL_MINUTES=5` を登録する。
 - 初回skip確認用に、GitHub repository variablesの `SCHEDULED_POSTING_ENABLED=false` を登録する。
 - GitHub Actionsを手動実行する。
 - skip確認後、GitHub repository variablesの `SCHEDULED_POSTING_ENABLED=true` に変更する。
@@ -51,7 +51,8 @@
 ## Actions確認事項
 
 - `SCHEDULED_POSTING_ENABLED=false` の手動実行で `scheduledPost.skip` が出る。
-- `SCHEDULED_POSTING_ENABLED=true` に変更する直前に、misskey.io上の直近ノートから30分以上空いている。
+- `SCHEDULED_POSTING_ENABLED=true` に変更する直前に、misskey.io上の直近ノートから5分以上空いている。
+- 5分以上30分未満の場合は投稿抽選に入るが、確率は低めでskipされることがある。
 - 初回投稿は自動scheduleではなく手動実行で行う。
 - 初回投稿後、misskey.io上で投稿visibility、文面、連投していないことを確認する。
 - 初回投稿後、Neon DBの `posts.note_id`、`posts.visibility`、`posts.generated_reason`、`bot_state.last_note_at` を確認する。

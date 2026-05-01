@@ -20,6 +20,8 @@
 - `/stop` はリプライや引用RNなどの接触停止、`/unfollow` はbot側からのフォロー解除とノート参照対象からの除外として扱う。
 - 容姿の基本画像は `images/CoffeeBean_V1_2_2026-04-30-23-42-08.png` を正とし、容姿解釈・画像生成・添付判断で参照する。
 - 定期ノート投稿は `SCHEDULED_POSTING_ENABLED=true` の時だけ行い、初期実投稿は `home` visibilityで開始する。
+- 定期ノートは直近通常投稿から5分未満なら必ずskipし、5分以上なら確率抽選に入る。
+- 投稿確率の目安は5分後10%、10分後15%、30分後80%、1時間超95%。
 - AI生成・分類はChutesをprimary、OpenAIをfallbackとして扱う。
 - AI API keyはsecretとして扱い、provider設定やtoken上限などの非secret設定はDBマスタで管理する。
 - ChutesのKimi系モデルは内部推論で `reasoning_tokens` を消費するため、短文分類でもtoken上限を小さくしすぎない。
