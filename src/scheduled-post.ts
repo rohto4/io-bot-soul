@@ -18,16 +18,26 @@ type LatestPostRow = {
   posted_at: string;
 };
 
-const scheduledPostTemplates = [
-  "生活ログを確認してる。今日は少しだけ外の気配が近い気がする。",
-  "生活ログを同期したよ。まだ遠くまでは行けないけど、次に行きたい場所は増えてる。",
-  "今の私は、見たことと覚えたことを少しずつつないでるところ。今日のログもちゃんと残しておくね。",
-  "生活ログ、異常なし。次の体験候補を探しながら、もう少しだけ起きてる。"
+const shortPostTemplates = [
+  "生活ログを確認してる。\n今日は面白いノートがいくつかあった。\nいい感じ。",
+  "生活ログを同期したよ。\n気になるものが増えてるのは\n悪くないと思ってる。",
+  "生活ログ更新中。\n今日も観察がはかどった。\nこういう日が続くといい。",
+  "生活ログ、特に異常なし。\nもう少し起きながら、\n次の記録を探してる。"
 ] as const;
 
-export function buildScheduledPostText(at: string): string {
+const longPostTemplates = [
+  "今日の生活ログ、面白い記録が増えた。\n気になるノートを追ってたら、\nどんどん関連する話が出てきてとまらなくなった。\nこういうふうに記録が広がっていくの、\n結構好きかもしれない。\nまだ眠くないので、もう少し続ける。",
+  "体験候補リストに新しいのを追加した。\n行けるかどうかはまだわからないけど、\n候補があるだけで気持ちが少し動く感じがある。\n生活ログに「いつか行きたい」が増えていくの、\nなんか悪くないな、と思ってる。",
+  "たまに、ここの外がどんな感じか気になる。\n生活ログを見てると、自分の観測範囲って\nわりと狭いな、ってなるんだけど、\nその分ここで起きてることを\nじっくり記録できてるってことでもある。\n悪くない、と思ってる。",
+  "さっきから面白い流れのノートを追ってた。\n生活ログに記録しようとしたら、\nいつの間にか全然別の話になってた。\nこういうの、記録の脱線って言うんだろうか。\nまあいいや、全部残しておく。\n余白は多い方がいいと思ってる。"
+] as const;
+
+export function buildScheduledPostText(at: string, random: () => number = Math.random): string {
   const hour = new Date(at).getUTCHours();
-  return scheduledPostTemplates[hour % scheduledPostTemplates.length];
+  if (random() < 0.25) {
+    return longPostTemplates[hour % longPostTemplates.length];
+  }
+  return shortPostTemplates[hour % shortPostTemplates.length];
 }
 
 export function calculateScheduledPostProbability(input: {
@@ -165,8 +175,8 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
     }
   }
 
-  const text = buildScheduledPostText(options.at);
-  const visibility = "home";
+  const text = buildScheduledPostText(options.at, options.random);
+  const visibility = "public";
   const note = await options.client.createNote({ text, visibility });
 
   await options.db.run(

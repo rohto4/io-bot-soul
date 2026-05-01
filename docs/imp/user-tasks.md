@@ -68,7 +68,7 @@ ORDER BY category, setting_key;
 ## 常駐Docker確認事項
 
 - `docker compose logs -f bot` で `poll.tick` が継続している。
-- `postDraw.tick` が出ても、ローカル側の `SCHEDULED_POSTING_ENABLED` がfalseなら投稿されない。
+- Docker常駐側では `poll.tick` が毎分出る。定期投稿抽選はGitHub Actions側で見る。
 - リプライ、`/stop`、`/unfollow` の実機挙動が維持されている。
 - ピン留め同意ノートへの❤が `experience_source_consents` に反映される。
 - 異常な連続返信、連続フォロー返し、API errorが出ていない。

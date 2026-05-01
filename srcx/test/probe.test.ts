@@ -104,7 +104,7 @@ describe("probe", () => {
     ]);
   });
 
-  it("replies once to mention or reply notifications", async () => {
+  it("records mention notifications as seen without replying", async () => {
     const db = await createTestDb();
     const client: MisskeyClient = {
       getNotifications: vi.fn(async () => [
@@ -138,11 +138,12 @@ describe("probe", () => {
       at: "2026-05-01T00:01:00.000Z"
     });
 
-    expect(client.createNote).toHaveBeenCalledTimes(1);
-    expect(await db.get("SELECT COUNT(*) AS count FROM reply_logs")).toEqual({ count: 1 });
+    expect(client.createNote).not.toHaveBeenCalled();
+    expect(await db.get("SELECT COUNT(*) AS count FROM notifications_seen")).toEqual({ count: 1 });
+    expect(await db.get("SELECT COUNT(*) AS count FROM reply_logs")).toEqual({ count: 0 });
   });
 
-  it("limits probe replies per polling tick", async () => {
+  it("does not reply to regular mentions regardless of count", async () => {
     const db = await createTestDb();
     const client: MisskeyClient = {
       getNotifications: vi.fn(async () => [
@@ -174,7 +175,8 @@ describe("probe", () => {
       at: "2026-05-01T00:00:00.000Z"
     });
 
-    expect(client.createNote).toHaveBeenCalledTimes(1);
+    expect(client.createNote).not.toHaveBeenCalled();
+    expect(await db.get("SELECT COUNT(*) AS count FROM notifications_seen")).toEqual({ count: 2 });
   });
 
   it("parses only exact stop and unfollow commands", () => {

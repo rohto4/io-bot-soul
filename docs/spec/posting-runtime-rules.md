@@ -78,11 +78,15 @@ ORDER BY category, setting_key;
 ## 常駐pollの投稿系フロー
 
 Docker常駐プロセスは、1分ごとに通知とリアクションを確認する。
+前回のpollがまだ実行中なら、重複実行を避けて `poll.skip reason=already_running` を出す。
 
 ```mermaid
 flowchart TD
-  A[Docker bot poll.tick] --> B[m_runtime_setting を読む]
-  B --> C[i/notifications から follow を取得]
+  A[Docker bot 60秒interval] --> AA{前回pollが実行中?}
+  AA -- Yes --> AB[skip: already_running]
+  AA -- No --> B[poll.tick]
+  B --> C0[m_runtime_setting を読む]
+  C0 --> C[i/notifications から follow を取得]
   C --> D{未案内の新規フォロワー?}
   D -- Yes --> E[フォロー返し]
   E --> F[ピン留め同意ノート案内を投稿]

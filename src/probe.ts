@@ -251,32 +251,12 @@ async function handleReplyNotification(options: {
     return await handleReplyCommand({ ...options, noteId: note.id, user, command });
   }
 
-  const reply = await options.client.createNote({
-    replyId: note.id,
-    text: buildProbeReply(user)
-  });
-
-  await options.db.run(
-      `
-      INSERT INTO reply_logs (target_note_id, target_user_id, reply_note_id, replied_at, reason, status)
-      VALUES (@target_note_id, @target_user_id, @reply_note_id, @replied_at, @reason, @status)
-      `,
-    {
-      target_note_id: note.id,
-      target_user_id: user.id,
-      reply_note_id: reply.id,
-      replied_at: options.at,
-      reason: "reply_probe",
-      status: "posted"
-    }
-  );
-
-  options.logger.info("replyProbe.posted", {
+  options.logger.debug("replyProbe.skip", {
+    reason: "no_command",
     targetNoteId: note.id,
-    replyNoteId: reply.id,
     targetUserId: user.id
   });
-  return true;
+  return false;
 }
 
 async function handleReplyCommand(options: {

@@ -12,13 +12,11 @@ describe("loadConfig", () => {
       DATABASE_URL: "postgresql://example",
       SQLITE_PATH: "/app/data/bot.sqlite",
       POLL_INTERVAL_SECONDS: "60",
-      POST_DRAW_INTERVAL_SECONDS: "300",
       SCHEDULED_POSTING_ENABLED: "true",
       LOG_LEVEL: "debug"
     });
 
     expect(config.pollIntervalMs).toBe(60_000);
-    expect(config.postDrawIntervalMs).toBe(300_000);
     expect(config.scheduledPostingEnabled).toBe(true);
     expect(config.databaseProvider).toBe("postgres");
     expect(config.databaseUrl).toBe("postgresql://example");
@@ -36,7 +34,6 @@ describe("loadConfig", () => {
     expect(config.databaseUrl).toBe("");
     expect(config.sqlitePath).toBe("./data/bot.sqlite");
     expect(config.pollIntervalMs).toBe(60_000);
-    expect(config.postDrawIntervalMs).toBe(300_000);
     expect(config.scheduledPostingEnabled).toBe(false);
   });
 

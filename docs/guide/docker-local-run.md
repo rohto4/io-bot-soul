@@ -11,7 +11,8 @@
 - SQLite DB、ログ、画像素材はホスト側ディレクトリをマウントする。
 - Misskey tokenなどのsecretは `.env.local` に置き、Gitには入れない。
 - `restart: unless-stopped` を使い、Docker Desktop起動後に自動復旧しやすくする。
-- MVPは1分pollingで通知、リプライ、リアクションを確認し、5分ごとに投稿抽選を行う。
+- MVPのDocker常駐プロセスは1分pollingで通知、リプライ、フォロー、リアクションを確認する。
+- 5分ごとの投稿抽選はGitHub Actionsの `Scheduled Post Draw` に分離する。
 - Streaming APIは安定化後の改善候補に回す。
 
 ## 想定ディレクトリ
@@ -41,7 +42,6 @@ DATABASE_PROVIDER=postgres
 DATABASE_URL=
 SQLITE_PATH=/app/data/bot.sqlite
 POLL_INTERVAL_SECONDS=60
-POST_DRAW_INTERVAL_SECONDS=300
 SCHEDULED_POSTING_ENABLED=false
 CHUTES_API_KEY=
 OPENAI_API_KEY=
@@ -125,7 +125,7 @@ ORDER BY category, setting_key;
 4. SQLite migrationを実行できるようにする。
 5. `docker compose build` でイメージを作る。
 6. `docker compose up -d` で常駐起動する。
-7. `docker compose logs -f bot` で疎通、polling、投稿抽選ログを見る。
+7. `docker compose logs -f bot` で疎通、polling、返信、フォロー、同意確認ログを見る。
 
 ## 運用上の注意
 

@@ -10,7 +10,7 @@ type Clock = () => Date;
 export type BotApp = {
   pollOnce(): Promise<void>;
   drawPostOnce(): Promise<void>;
-  start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number }): () => void;
+  start(intervals: { pollIntervalMs: number }): () => void;
 };
 
 export function createBotApp(options: {
@@ -82,25 +82,33 @@ export function createBotApp(options: {
     });
   }
 
-  function start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number }): () => void {
-    void pollOnce();
-    void drawPostOnce();
+  function start(intervals: { pollIntervalMs: number }): () => void {
+    let pollRunning = false;
+
+    function runPoll(): void {
+      if (pollRunning) {
+        options.logger.warn("poll.skip", { reason: "already_running" });
+        return;
+      }
+
+      pollRunning = true;
+      void pollOnce()
+        .catch((error: unknown) => {
+          options.logger.error("poll.error", { error: String(error) });
+        })
+        .finally(() => {
+          pollRunning = false;
+        });
+    }
+
+    runPoll();
 
     const pollTimer = setInterval(() => {
-      void pollOnce().catch((error: unknown) => {
-        options.logger.error("poll.error", { error: String(error) });
-      });
+      runPoll();
     }, intervals.pollIntervalMs);
-
-    const postDrawTimer = setInterval(() => {
-      void drawPostOnce().catch((error: unknown) => {
-        options.logger.error("postDraw.error", { error: String(error) });
-      });
-    }, intervals.postDrawIntervalMs);
 
     return () => {
       clearInterval(pollTimer);
-      clearInterval(postDrawTimer);
     };
   }
 

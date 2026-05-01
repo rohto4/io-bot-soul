@@ -50,6 +50,14 @@
 - workflowは5分ごとのscheduleと手動実行に対応。
 - 現時点の投稿文はAI生成や体験候補参照を行わない固定テンプレートで、体験候補選定と引用Renote連携は未実装。
 
+## 2026-05-01 常駐アプリの役割整理
+
+- Docker常駐アプリは、毎分pollingによるフォロー返し、リプライ返信、同意リアクション確認に絞った。
+- 5分ごとの通常ノート投稿抽選はGitHub Actionsの `Scheduled Post Draw` に分離した。
+- 常駐pollは前回処理がまだ実行中なら `poll.skip` / `reason = already_running` として重複実行を避ける。
+- `POST_DRAW_INTERVAL_SECONDS` は不要になったため、環境変数とworkflow envから削除した。
+- スクリプトの役割分担を `docs/guide/script-overview.md` に整理した。
+
 ## 2026-05-01 Neon/Postgres移行土台
 
 - DB操作をSQLite直結から共通 `DbClient` へ移行。

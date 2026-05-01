@@ -190,13 +190,13 @@ describe("runScheduledPostDraw", () => {
 
     expect(client.createNote).toHaveBeenCalledWith({
       text: expect.stringContaining("生活ログ"),
-      visibility: "home"
+      visibility: "public"
     });
 
     await expect(db.get("SELECT note_id, kind, visibility, generated_reason FROM posts")).resolves.toEqual({
       note_id: "posted-note",
       kind: "normal",
-      visibility: "home",
+      visibility: "public",
       generated_reason: "scheduled_post_draw_v0"
     });
     await expect(db.get("SELECT last_note_at FROM bot_state WHERE id = 1")).resolves.toEqual({

@@ -29,7 +29,7 @@ describe("createBotApp", () => {
     expect(logger.info).toHaveBeenCalledWith("postDraw.tick", { at: "2026-05-01T00:00:00.000Z" });
   });
 
-  it("starts interval timers and returns a stop function", async () => {
+  it("starts only polling interval timers and returns a stop function", async () => {
     vi.useFakeTimers();
     const db = await createTestDb();
     const logger = {
@@ -45,11 +45,14 @@ describe("createBotApp", () => {
       now: () => new Date("2026-05-01T00:00:00.000Z")
     });
 
-    const stop = app.start({ pollIntervalMs: 1000, postDrawIntervalMs: 2000 });
+    const stop = app.start({ pollIntervalMs: 1000 });
     await vi.advanceTimersByTimeAsync(2100);
     stop();
     await vi.advanceTimersByTimeAsync(3000);
 
-    expect(logger.info).toHaveBeenCalledTimes(5);
+    expect(logger.info).toHaveBeenCalledTimes(3);
+    expect(logger.info).not.toHaveBeenCalledWith("postDraw.tick", {
+      at: "2026-05-01T00:00:00.000Z"
+    });
   });
 });
