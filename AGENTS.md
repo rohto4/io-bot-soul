@@ -23,10 +23,13 @@
 ## 読み込み順
 
 1. `AGENTS.md`
-2. `PROJECT.md`
-3. `docs/ecc-io-bot-soul-setup.md`
-4. 必要に応じて `.agents/skills/*/SKILL.md`
-5. 必要に応じて `commands/*.md`
+2. `PROJECT.md` ← 現在のフェーズと次タスクへのポインタがある
+3. `docs/imp/user-tasks.md` ← 次にやることはここ
+4. 必要に応じて `docs/imp/imp-wait.md`（未解決課題）
+5. 必要に応じて `docs/imp/imp-comp.md`（完了記録）
+6. 必要に応じて `docs/ecc-io-bot-soul-setup.md`
+7. 必要に応じて `.agents/skills/*/SKILL.md`
+8. 必要に応じて `commands/*.md`
 
 ## OpenCode設定の持ち込み
 
