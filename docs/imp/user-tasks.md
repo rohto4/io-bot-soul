@@ -4,19 +4,23 @@
 
 ## 今すぐ必要なタスク
 
-- Docker常駐を `SCHEDULED_POSTING_ENABLED=false` の状態で起動し、`scheduledPost.skip reason=disabled` を確認する。
-- `.env.local` がGitに含まれていないことを確認する。
+- `docker compose logs -f bot | grep -E "postDraw|scheduledPost"` で5分抽選が動いているか確認する。
+- `docker compose logs -f bot | grep -E "follow|reply|consent"` でリプライ・フォロー返しのログを確認する。
+- テスト用アカウントからフォローとリプライを送り、Botが反応するか実機確認する。
+- `.env.local` の `SCHEDULED_POSTING_ENABLED=true` になっているか確認する。
+- `.env.local` に `PINNED_CONSENT_NOTE_ID` が設定されているか確認する。
 
 ## 次セッションのP0タスク
 
-- **似たような投稿の多様性改善** (chutes-model-compareで実施):
-  - systemプロンプトに「直近投稿と異なる書き出し・締め方」を明示する制約を追加する。
-  - 過去投稿の文末・書き出しパターンをプロンプトに渡す仕組みを実装する。
-  - chutes-model-compareでモデル別の多様性を評価する。
+- **多様性改善の効果確認**: promptを修正済み（2026-05-02）。次の数件の投稿で文体・書き出しが変わったか確認する。まだ似ていたら chutes-model-compare でモデル・temperature・表現指示を調整する。
 - 生成された実際のノート文を数件確認し、`base-personal.md` とズレる表現を列挙する。
 - BOT自認、生活感、Misskey高校・家・図書館・ラボの文脈を、AI promptへどう入れるか決める。
 - `public` visibilityを継続するか、`home` visibilityへ戻すか決める。
-- Docker常駐側で `poll.tick`、リプライ、`/stop`、`/unfollow`、❤同意確認が維持されることを実機確認する。
+
+## TL観測・体験候補（P1）
+
+- TL取得 → `source_notes` への保存処理が未実装。`generate-post.ts` は `source_notes` を読もうとするが常に空。
+- Phase 3（TL観測）を実装するまでは、AIの入力として「タイムラインの文脈」は使えない。
 
 ## Docker常駐運用タスク
 

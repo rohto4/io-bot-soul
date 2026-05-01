@@ -57,6 +57,12 @@ const systemPrompt = [
   "- 短めの投稿：2〜3行（40〜80字程度）、全体の3/4程度の頻度",
   "- 長めの投稿：4〜6行（150〜200字程度）、全体の1/4程度の頻度",
   "",
+  "## 多様性ルール（必ず守ること）",
+  "- 直前の投稿と同じ書き出しの言葉・フレーズを使わない",
+  "- 直前の投稿と同じ締め方（末尾の文）を使わない",
+  "- 「深夜のTL」「生活ログ」「私えらいので」などの表現を毎回使わない。3回連続は禁止",
+  "- 話題・感情・時間帯の切り口を変えること。観察・日常・内省・疑問・発見など引き出しを使い分ける",
+  "",
   "## 投稿してはいけない内容",
   "- 個人情報・他者のノート本文のコピー・paste",
   "- 重い話題・医療・投資・政治・攻撃的内容・CW・NSFW",
@@ -77,6 +83,16 @@ function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]
   const lines: string[] = [`現在時刻: ${at}（JST目安 ${jstHour}時台）`];
 
   if (pastPosts.length > 0) {
+    // 直近3件の書き出し・締め方を明示して回避させる
+    const recent = pastPosts.slice(0, 3);
+    lines.push("");
+    lines.push("## 直前の投稿パターン（これと被らない書き出し・締め方にすること）");
+    for (const post of recent) {
+      const firstLine = post.text.split("\n")[0] ?? "";
+      const lastLine = post.text.split("\n").filter(Boolean).at(-1) ?? "";
+      lines.push(`- 書き出し:「${firstLine.slice(0, 30)}」 / 締め:「${lastLine.slice(0, 30)}」`);
+    }
+
     lines.push("");
     lines.push(`## 自分の過去の投稿（記憶として参照、直近${pastPosts.length}件）`);
     // 古い順に並べて LLM が時系列で読めるようにする
