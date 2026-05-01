@@ -11,7 +11,7 @@ import {
   readStringSetting
 } from "../runtime-settings.js";
 
-type PostRow = { text: string; posted_at: string };
+type PostRow = { text: string; posted_at: string; tier: "recent" | "mid" | "old" };
 type TlNoteRow = { text_summary: string; note_created_at: string };
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -87,34 +87,6 @@ const systemPrompt = [
   .filter((s) => s !== undefined)
   .join("\n");
 
-type WeightedMemory = {
-  recent: PostRow[];  // 直近7日: 最大20件
-  mid: PostRow[];     // 7〜30日: 3件おき、最大10件
-  old: PostRow[];     // 30〜60日: 10件おき、最大5件
-};
-
-function buildWeightedMemory(posts: PostRow[], at: string): WeightedMemory {
-  const now = new Date(at).getTime();
-  const DAY = 24 * 60 * 60 * 1000;
-
-  const recentRaw: PostRow[] = [];
-  const midRaw: PostRow[] = [];
-  const oldRaw: PostRow[] = [];
-
-  for (const post of posts) {
-    const ageMs = now - new Date(post.posted_at).getTime();
-    if (ageMs < 7 * DAY) recentRaw.push(post);
-    else if (ageMs < 30 * DAY) midRaw.push(post);
-    else oldRaw.push(post);
-  }
-
-  return {
-    recent: recentRaw.slice(0, 20),
-    mid: midRaw.filter((_, i) => i % 3 === 0).slice(0, 10),
-    old: oldRaw.filter((_, i) => i % 10 === 0).slice(0, 5)
-  };
-}
-
 function formatPost(post: PostRow, maxLen: number): string {
   const date = post.posted_at.slice(0, 16);
   const text = post.text.replace(/\n/g, "｜").slice(0, maxLen);
@@ -126,8 +98,8 @@ function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]
   const lines: string[] = [`現在時刻: ${at}（JST目安 ${jstHour}時台）`];
 
   if (pastPosts.length > 0) {
-    // 直近3件の書き出し・締め方を多様性制約として先に提示
-    const top3 = pastPosts.slice(0, 3);
+    // 直近3件（配列末尾 = 最新）の書き出し・締め方を多様性制約として先に提示
+    const top3 = [...pastPosts].slice(-3).reverse();
     lines.push("");
     lines.push("## 直前の投稿パターン（これと被らない書き出し・締め方にすること）");
     for (const post of top3) {
@@ -136,29 +108,25 @@ function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]
       lines.push(`- 書き出し:「${firstLine.slice(0, 30)}」 / 締め:「${lastLine.slice(0, 30)}」`);
     }
 
-    // 重みづけされた記憶を3段階で提示（古い順に並べて時系列で読めるようにする）
-    const mem = buildWeightedMemory(pastPosts, at);
+    // SQLが古い順(ASC)で返すのでそのまま表示、tierで3セクションに分ける
+    const recentPosts = pastPosts.filter((p) => p.tier === "recent");
+    const midPosts = pastPosts.filter((p) => p.tier === "mid");
+    const oldPosts = pastPosts.filter((p) => p.tier === "old");
 
-    if (mem.recent.length > 0) {
+    if (recentPosts.length > 0) {
       lines.push("");
       lines.push("## 最近の記憶（直近1週間）");
-      for (const post of [...mem.recent].reverse()) {
-        lines.push(formatPost(post, 100));
-      }
+      for (const post of recentPosts) lines.push(formatPost(post, 100));
     }
-    if (mem.mid.length > 0) {
+    if (midPosts.length > 0) {
       lines.push("");
       lines.push("## 少し前の記憶（1週間〜1ヶ月）");
-      for (const post of [...mem.mid].reverse()) {
-        lines.push(formatPost(post, 80));
-      }
+      for (const post of midPosts) lines.push(formatPost(post, 80));
     }
-    if (mem.old.length > 0) {
+    if (oldPosts.length > 0) {
       lines.push("");
       lines.push("## 断片的な記憶（1〜2ヶ月前）");
-      for (const post of [...mem.old].reverse()) {
-        lines.push(formatPost(post, 60));
-      }
+      for (const post of oldPosts) lines.push(formatPost(post, 60));
     }
   }
 
@@ -228,11 +196,52 @@ export async function generatePostText(options: {
 }): Promise<string | null> {
   const { settings, db, at, logger } = options;
 
-  // 過去2ヶ月分を取得してtiered samplingで渡す
-  const twoMonthsAgo = new Date(new Date(at).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const nowMs = new Date(at).getTime();
+  const recentStart = new Date(nowMs - 7 * DAY_MS).toISOString();
+  const midStart = new Date(nowMs - 30 * DAY_MS).toISOString();
+  const oldStart = new Date(nowMs - 60 * DAY_MS).toISOString();
+
+  // tiered sampling を SQL だけで実現:
+  //   直近7日   → 最大20件（全量）
+  //   7〜30日   → 3件おき、最大10件
+  //   30〜60日  → 10件おき、最大5件
+  // 結果は posted_at ASC で返る
   const pastPosts = await db.all<PostRow>(
-    "SELECT text, posted_at FROM posts WHERE kind = 'normal' AND posted_at >= @since ORDER BY posted_at DESC",
-    { since: twoMonthsAgo }
+    `WITH
+     recent AS (
+       SELECT text, posted_at, 'recent' AS tier
+       FROM posts
+       WHERE kind = 'normal' AND posted_at >= @recent_start
+       ORDER BY posted_at DESC LIMIT 20
+     ),
+     mid_n AS (
+       SELECT text, posted_at,
+              ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
+       FROM posts
+       WHERE kind = 'normal'
+         AND posted_at >= @mid_start AND posted_at < @recent_start
+     ),
+     mid AS (
+       SELECT text, posted_at, 'mid' AS tier FROM mid_n
+       WHERE (rn - 1) % 3 = 0 LIMIT 10
+     ),
+     old_n AS (
+       SELECT text, posted_at,
+              ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
+       FROM posts
+       WHERE kind = 'normal'
+         AND posted_at >= @old_start AND posted_at < @mid_start
+     ),
+     old AS (
+       SELECT text, posted_at, 'old' AS tier FROM old_n
+       WHERE (rn - 1) % 10 = 0 LIMIT 5
+     )
+     SELECT text, posted_at, tier FROM recent
+     UNION ALL SELECT text, posted_at, tier FROM mid
+     UNION ALL SELECT text, posted_at, tier FROM old
+     ORDER BY posted_at ASC`,
+    { recent_start: recentStart, mid_start: midStart, old_start: oldStart }
   );
   const tlNotes = await db.all<TlNoteRow>(
     "SELECT text_summary, note_created_at FROM source_notes WHERE text_summary IS NOT NULL ORDER BY note_created_at DESC LIMIT 10"
