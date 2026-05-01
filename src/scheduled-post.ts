@@ -1,7 +1,8 @@
 import type { DbClient } from "./db/client.js";
 import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
-import { loadRuntimeSettings, readIntegerSetting, readNumberSetting } from "./runtime-settings.js";
+import { generatePostText } from "./ai/generate-post.js";
+import { loadRuntimeSettings, readBooleanSetting, readIntegerSetting, readNumberSetting } from "./runtime-settings.js";
 
 type ScheduledPostClient = Pick<MisskeyClient, "createNote">;
 
@@ -12,6 +13,7 @@ export type ScheduledPostDrawOptions = {
   at: string;
   enabled: boolean;
   random?: () => number;
+  generateText?: () => Promise<string | null>;
 };
 
 type LatestPostRow = {
@@ -175,7 +177,28 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
     }
   }
 
-  const text = buildScheduledPostText(options.at, options.random);
+  const generateFn =
+    options.generateText ??
+    (() =>
+      generatePostText({
+        settings: runtimeSettings,
+        db: options.db,
+        at: options.at,
+        chutesApiKey: process.env.CHUTES_API_KEY,
+        openaiApiKey: process.env.OPENAI_API_KEY,
+        logger: options.logger
+      }));
+
+  const aiText = await generateFn();
+  if (aiText === null) {
+    const skipOnFailure = readBooleanSetting(runtimeSettings, "AI_SKIP_POST_ON_AI_FAILURE", true);
+    if (skipOnFailure) {
+      options.logger.info("scheduledPost.skip", { at: options.at, reason: "ai_failure" });
+      return;
+    }
+  }
+
+  const text = aiText ?? buildScheduledPostText(options.at, options.random);
   const visibility = "public";
   const note = await options.client.createNote({ text, visibility });
 

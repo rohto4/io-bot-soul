@@ -33,3 +33,13 @@ export function readNumberSetting(settings: RuntimeSettings, key: string, fallba
 export function readIntegerSetting(settings: RuntimeSettings, key: string, fallback: number): number {
   return Math.trunc(readNumberSetting(settings, key, fallback));
 }
+
+export function readStringSetting(settings: RuntimeSettings, key: string, fallback: string): string {
+  return settings.get(key) ?? fallback;
+}
+
+export function readBooleanSetting(settings: RuntimeSettings, key: string, fallback: boolean): boolean {
+  const value = settings.get(key);
+  if (value === undefined) return fallback;
+  return value.toLowerCase() === "true";
+}

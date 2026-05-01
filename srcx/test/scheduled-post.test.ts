@@ -130,7 +130,8 @@ describe("runScheduledPostDraw", () => {
       client,
       at: "2026-05-01T00:30:00.000Z",
       enabled: true,
-      random: () => 0.1
+      random: () => 0.1,
+      generateText: async () => "生活ログ、テスト。"
     });
 
     expect(client.createNote).toHaveBeenCalledTimes(1);
@@ -167,7 +168,8 @@ describe("runScheduledPostDraw", () => {
       client,
       at: "2026-05-01T00:30:00.000Z",
       enabled: true,
-      random: () => 0.9
+      random: () => 0.9,
+      generateText: async () => "生活ログ、テスト。"
     });
 
     expect(client.createNote).toHaveBeenCalledTimes(1);
@@ -185,7 +187,8 @@ describe("runScheduledPostDraw", () => {
       logger,
       client,
       at: "2026-05-01T12:00:00.000Z",
-      enabled: true
+      enabled: true,
+      generateText: async () => "生活ログ、テスト。"
     });
 
     expect(client.createNote).toHaveBeenCalledWith({
