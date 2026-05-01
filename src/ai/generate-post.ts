@@ -87,28 +87,78 @@ const systemPrompt = [
   .filter((s) => s !== undefined)
   .join("\n");
 
+type WeightedMemory = {
+  recent: PostRow[];  // 直近7日: 最大20件
+  mid: PostRow[];     // 7〜30日: 3件おき、最大10件
+  old: PostRow[];     // 30〜60日: 10件おき、最大5件
+};
+
+function buildWeightedMemory(posts: PostRow[], at: string): WeightedMemory {
+  const now = new Date(at).getTime();
+  const DAY = 24 * 60 * 60 * 1000;
+
+  const recentRaw: PostRow[] = [];
+  const midRaw: PostRow[] = [];
+  const oldRaw: PostRow[] = [];
+
+  for (const post of posts) {
+    const ageMs = now - new Date(post.posted_at).getTime();
+    if (ageMs < 7 * DAY) recentRaw.push(post);
+    else if (ageMs < 30 * DAY) midRaw.push(post);
+    else oldRaw.push(post);
+  }
+
+  return {
+    recent: recentRaw.slice(0, 20),
+    mid: midRaw.filter((_, i) => i % 3 === 0).slice(0, 10),
+    old: oldRaw.filter((_, i) => i % 10 === 0).slice(0, 5)
+  };
+}
+
+function formatPost(post: PostRow, maxLen: number): string {
+  const date = post.posted_at.slice(0, 16);
+  const text = post.text.replace(/\n/g, "｜").slice(0, maxLen);
+  return `${date}: ${text}`;
+}
+
 function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]): string {
   const jstHour = (new Date(at).getUTCHours() + 9) % 24;
   const lines: string[] = [`現在時刻: ${at}（JST目安 ${jstHour}時台）`];
 
   if (pastPosts.length > 0) {
-    // 直近3件の書き出し・締め方を明示して回避させる
-    const recent = pastPosts.slice(0, 3);
+    // 直近3件の書き出し・締め方を多様性制約として先に提示
+    const top3 = pastPosts.slice(0, 3);
     lines.push("");
     lines.push("## 直前の投稿パターン（これと被らない書き出し・締め方にすること）");
-    for (const post of recent) {
+    for (const post of top3) {
       const firstLine = post.text.split("\n")[0] ?? "";
       const lastLine = post.text.split("\n").filter(Boolean).at(-1) ?? "";
       lines.push(`- 書き出し:「${firstLine.slice(0, 30)}」 / 締め:「${lastLine.slice(0, 30)}」`);
     }
 
-    lines.push("");
-    lines.push(`## 自分の過去の投稿（記憶として参照、直近${pastPosts.length}件）`);
-    // 古い順に並べて LLM が時系列で読めるようにする
-    for (const post of [...pastPosts].reverse()) {
-      const date = post.posted_at.slice(0, 16);
-      const text = post.text.replace(/\n/g, "｜").slice(0, 100);
-      lines.push(`${date}: ${text}`);
+    // 重みづけされた記憶を3段階で提示（古い順に並べて時系列で読めるようにする）
+    const mem = buildWeightedMemory(pastPosts, at);
+
+    if (mem.recent.length > 0) {
+      lines.push("");
+      lines.push("## 最近の記憶（直近1週間）");
+      for (const post of [...mem.recent].reverse()) {
+        lines.push(formatPost(post, 100));
+      }
+    }
+    if (mem.mid.length > 0) {
+      lines.push("");
+      lines.push("## 少し前の記憶（1週間〜1ヶ月）");
+      for (const post of [...mem.mid].reverse()) {
+        lines.push(formatPost(post, 80));
+      }
+    }
+    if (mem.old.length > 0) {
+      lines.push("");
+      lines.push("## 断片的な記憶（1〜2ヶ月前）");
+      for (const post of [...mem.old].reverse()) {
+        lines.push(formatPost(post, 60));
+      }
     }
   }
 
@@ -178,10 +228,11 @@ export async function generatePostText(options: {
 }): Promise<string | null> {
   const { settings, db, at, logger } = options;
 
-  // 過去投稿を多めに読み込む（デフォルト100件）
-  const historyLimit = Math.max(1, readIntegerSetting(settings, "AI_POST_HISTORY_LIMIT", 100));
+  // 過去2ヶ月分を取得してtiered samplingで渡す
+  const twoMonthsAgo = new Date(new Date(at).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
   const pastPosts = await db.all<PostRow>(
-    `SELECT text, posted_at FROM posts WHERE kind = 'normal' ORDER BY posted_at DESC LIMIT ${historyLimit}`
+    "SELECT text, posted_at FROM posts WHERE kind = 'normal' AND posted_at >= @since ORDER BY posted_at DESC",
+    { since: twoMonthsAgo }
   );
   const tlNotes = await db.all<TlNoteRow>(
     "SELECT text_summary, note_created_at FROM source_notes WHERE text_summary IS NOT NULL ORDER BY note_created_at DESC LIMIT 10"
