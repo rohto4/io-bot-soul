@@ -70,6 +70,8 @@ describe("createBotApp", () => {
       error: vi.fn(),
       debug: vi.fn()
     };
+    // TL観測ガチャを無効化して常にnormalパスに入るよう設定
+    await db.run(`UPDATE m_runtime_setting SET setting_value='0' WHERE setting_key='TL_OBSERVATION_POST_PROBABILITY'`);
     const client = {
       getNotifications: vi.fn().mockResolvedValue([]),
       createNote: vi.fn().mockImplementation(
@@ -80,7 +82,9 @@ describe("createBotApp", () => {
       ),
       createFollowing: vi.fn().mockResolvedValue(undefined),
       deleteFollowing: vi.fn().mockResolvedValue(undefined),
-      getNoteReactions: vi.fn().mockResolvedValue([])
+      getNoteReactions: vi.fn().mockResolvedValue([]),
+      getHomeTimeline: vi.fn().mockResolvedValue([]),
+      getUserNotes: vi.fn().mockResolvedValue([])
     };
 
     const app = createBotApp({

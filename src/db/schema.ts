@@ -290,7 +290,8 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
     ["AI_SKIP_POST_ON_AI_FAILURE", "true", "boolean", "ai", "Skip posting when AI fails."],
     ["AI_SKIP_POST_ON_FALLBACK_FAILURE", "true", "boolean", "ai", "Skip posting when fallback also fails."],
     ["AI_LOG_PROMPT", "false", "boolean", "ai", "Whether prompt text can be logged."],
-    ["AI_LOG_RESPONSE_SUMMARY", "true", "boolean", "ai", "Whether response summaries can be logged."]
+    ["AI_LOG_RESPONSE_SUMMARY", "true", "boolean", "ai", "Whether response summaries can be logged."],
+    ["BETA_TEST1_ENABLED", "false", "boolean", "beta", "beta-test1 mode: TL obs 80%, quote RN 25% (20% overall), elapsed x5 for normal posts."]
   ];
 
   for (const [key, value, valueType, category, description] of settings) {

@@ -101,11 +101,16 @@ function drawAction(
   latestNormal: { posted_at: string } | undefined,
   at: string
 ): DrawResult {
+  const beta = readBooleanSetting(settings, "BETA_TEST1_ENABLED", false);
+
+  // beta-test1: TL観測80%・引用RN25%（overall 20%）・経過時間5倍
+  const tlObsProb   = beta ? 0.80 : readNumberSetting(settings, "TL_OBSERVATION_POST_PROBABILITY", 0.20);
+  const quoteRnProb = beta ? 0.25 : readNumberSetting(settings, "QUOTE_RENOTE_PROBABILITY",        0.20);
+  const elapsedMult = beta ? 5.0  : 1.0;
+
   // TL 観測ガチャ
-  if (rand() < readNumberSetting(settings, "TL_OBSERVATION_POST_PROBABILITY", 0.20)) {
-    if (rand() < readNumberSetting(settings, "QUOTE_RENOTE_PROBABILITY", 0.20)) {
-      return { tag: "quote_rn" };
-    }
+  if (rand() < tlObsProb) {
+    if (rand() < quoteRnProb) return { tag: "quote_rn" };
     return { tag: "tl_obs" };
   }
 
@@ -113,7 +118,7 @@ function drawAction(
   if (latestNormal) {
     const minInterval = readIntegerSetting(settings, "SCHEDULED_POST_MIN_INTERVAL_MINUTES", 5);
     const elapsedMs = new Date(at).getTime() - new Date(latestNormal.posted_at).getTime();
-    const elapsedMinutes = elapsedMs / 60 / 1000;
+    const elapsedMinutes = (elapsedMs / 60 / 1000) * elapsedMult;
 
     if (elapsedMs < minInterval * 60 * 1000) {
       return { tag: "skip", reason: "min_interval", meta: { latestPostedAt: latestNormal.posted_at } };
@@ -330,6 +335,10 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
     return;
   }
 
+  const betaEnabled = readBooleanSetting(settings, "BETA_TEST1_ENABLED", false);
+  if (betaEnabled) {
+    options.logger.info("betaTest1.active", { at: options.at, tlObsProb: 0.80, quoteRnProb: 0.25, elapsedMult: 5.0 });
+  }
   options.logger.info("scheduledPost.action", { at: options.at, action: draw.tag });
 
   // ===== Phase 2: 取得 =====
