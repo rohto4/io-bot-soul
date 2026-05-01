@@ -93,24 +93,28 @@ function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]
       lines.push(`- 書き出し:「${firstLine.slice(0, 30)}」 / 締め:「${lastLine.slice(0, 30)}」`);
     }
 
-    // SQLが古い順(ASC)で返すのでそのまま表示、tierで3セクションに分ける
+    // 過去投稿の文脈を3段階で提示（SQLがASCで返すのでそのまま時系列順）
     const recentPosts = pastPosts.filter((p) => p.tier === "recent");
     const midPosts = pastPosts.filter((p) => p.tier === "mid");
     const oldPosts = pastPosts.filter((p) => p.tier === "old");
 
+    lines.push("");
+    lines.push("## これまでの投稿文脈");
+    lines.push("以下はあなた自身の過去の投稿です。この蓄積と流れを踏まえた上でノートを生成してください。");
+
     if (recentPosts.length > 0) {
       lines.push("");
-      lines.push("## 最近の記憶（直近1週間）");
+      lines.push("### 最近の記憶（直近1週間）");
       for (const post of recentPosts) lines.push(formatPost(post, 100));
     }
     if (midPosts.length > 0) {
       lines.push("");
-      lines.push("## 少し前の記憶（1週間〜1ヶ月）");
+      lines.push("### 少し前の記憶（1週間〜1ヶ月）");
       for (const post of midPosts) lines.push(formatPost(post, 80));
     }
     if (oldPosts.length > 0) {
       lines.push("");
-      lines.push("## 断片的な記憶（1〜2ヶ月前）");
+      lines.push("### 断片的な記憶（1〜2ヶ月前）");
       for (const post of oldPosts) lines.push(formatPost(post, 60));
     }
   }
