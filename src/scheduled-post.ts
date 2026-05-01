@@ -1,6 +1,7 @@
 import type { DbClient } from "./db/client.js";
 import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
+import { loadRuntimeSettings, readIntegerSetting, readNumberSetting } from "./runtime-settings.js";
 
 type ScheduledPostClient = Pick<MisskeyClient, "createNote">;
 
@@ -10,7 +11,6 @@ export type ScheduledPostDrawOptions = {
   client: ScheduledPostClient;
   at: string;
   enabled: boolean;
-  minIntervalMinutes: number;
   random?: () => number;
 };
 
@@ -33,29 +33,51 @@ export function buildScheduledPostText(at: string): string {
 export function calculateScheduledPostProbability(input: {
   elapsedMinutes: number;
   minIntervalMinutes: number;
+  points?: ProbabilityPoint[];
 }): number {
   if (input.elapsedMinutes < input.minIntervalMinutes) {
     return 0;
   }
 
-  if (input.elapsedMinutes <= 5) {
-    return 0.1;
+  const points = input.points ?? defaultProbabilityPoints;
+  const first = points[0];
+
+  if (!first) {
+    return 1;
   }
 
-  if (input.elapsedMinutes <= 10) {
-    return interpolate(input.elapsedMinutes, 5, 10, 0.1, 0.15);
+  if (input.elapsedMinutes <= first.elapsedMinutes) {
+    return first.probability;
   }
 
-  if (input.elapsedMinutes <= 30) {
-    return interpolate(input.elapsedMinutes, 10, 30, 0.15, 0.8);
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    if (input.elapsedMinutes <= current.elapsedMinutes) {
+      return interpolate(
+        input.elapsedMinutes,
+        previous.elapsedMinutes,
+        current.elapsedMinutes,
+        previous.probability,
+        current.probability
+      );
+    }
   }
 
-  if (input.elapsedMinutes <= 60) {
-    return interpolate(input.elapsedMinutes, 30, 60, 0.8, 0.95);
-  }
-
-  return 0.95;
+  return points[points.length - 1].probability;
 }
+
+type ProbabilityPoint = {
+  elapsedMinutes: number;
+  probability: number;
+};
+
+const defaultProbabilityPoints: ProbabilityPoint[] = [
+  { elapsedMinutes: 5, probability: 0.1 },
+  { elapsedMinutes: 10, probability: 0.15 },
+  { elapsedMinutes: 30, probability: 0.8 },
+  { elapsedMinutes: 60, probability: 0.95 }
+];
 
 function interpolate(
   value: number,
@@ -76,6 +98,31 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
     return;
   }
 
+  const runtimeSettings = await loadRuntimeSettings(options.db);
+  const minIntervalMinutes = readIntegerSetting(
+    runtimeSettings,
+    "SCHEDULED_POST_MIN_INTERVAL_MINUTES",
+    5
+  );
+  const probabilityPoints = [
+    {
+      elapsedMinutes: 5,
+      probability: readNumberSetting(runtimeSettings, "POST_PROBABILITY_5_MIN", 0.1)
+    },
+    {
+      elapsedMinutes: 10,
+      probability: readNumberSetting(runtimeSettings, "POST_PROBABILITY_10_MIN", 0.15)
+    },
+    {
+      elapsedMinutes: 30,
+      probability: readNumberSetting(runtimeSettings, "POST_PROBABILITY_30_MIN", 0.8)
+    },
+    {
+      elapsedMinutes: 60,
+      probability: readNumberSetting(runtimeSettings, "POST_PROBABILITY_60_MIN", 0.95)
+    }
+  ];
+
   const latestPost = await options.db.get<LatestPostRow>(
     `
     SELECT posted_at
@@ -89,7 +136,7 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
   if (latestPost) {
     const elapsedMs = new Date(options.at).getTime() - new Date(latestPost.posted_at).getTime();
     const elapsedMinutes = elapsedMs / 60 / 1000;
-    if (elapsedMs < options.minIntervalMinutes * 60 * 1000) {
+    if (elapsedMs < minIntervalMinutes * 60 * 1000) {
       options.logger.info("scheduledPost.skip", {
         at: options.at,
         reason: "min_interval",
@@ -100,7 +147,8 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
 
     const probability = calculateScheduledPostProbability({
       elapsedMinutes,
-      minIntervalMinutes: options.minIntervalMinutes
+      minIntervalMinutes,
+      points: probabilityPoints
     });
     const draw = (options.random ?? Math.random)();
 

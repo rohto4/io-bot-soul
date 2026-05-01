@@ -43,10 +43,11 @@ export async function handleReplyProbe(options: {
   client: MisskeyClient;
   logger: Logger;
   maxReplies: number;
+  notificationFetchLimit: number;
   at: string;
 }): Promise<void> {
   const notifications = await options.client.getNotifications({
-    limit: 20,
+    limit: options.notificationFetchLimit,
     includeTypes: ["mention", "reply"],
     markAsRead: false
   });
@@ -68,10 +69,11 @@ export async function handleFollowProbe(options: {
   client: MisskeyClient;
   logger: Logger;
   maxFollows: number;
+  notificationFetchLimit: number;
   at: string;
 }): Promise<void> {
   const notifications = await options.client.getNotifications({
-    limit: 20,
+    limit: options.notificationFetchLimit,
     includeTypes: ["follow"],
     markAsRead: false
   });
@@ -373,6 +375,7 @@ export async function handleConsentReactions(options: {
   client: MisskeyClient;
   logger: Logger;
   pinnedConsentNoteId: string;
+  reactionFetchLimit: number;
   at: string;
 }): Promise<void> {
   if (!options.pinnedConsentNoteId) {
@@ -382,7 +385,7 @@ export async function handleConsentReactions(options: {
 
   const reactions = await options.client.getNoteReactions({
     noteId: options.pinnedConsentNoteId,
-    limit: 100
+    limit: options.reactionFetchLimit
   });
 
   for (const reaction of reactions) {

@@ -2,6 +2,7 @@ import type { DbClient } from "./db/client.js";
 import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
 import { handleConsentReactions, handleFollowProbe, handleReplyProbe } from "./probe.js";
+import { loadRuntimeSettings, readIntegerSetting } from "./runtime-settings.js";
 import { runScheduledPostDraw } from "./scheduled-post.js";
 
 type Clock = () => Date;
@@ -18,9 +19,7 @@ export function createBotApp(options: {
   misskey?: {
     client: MisskeyClient;
     pinnedConsentNoteId: string;
-    replyProbeMaxPerPoll: number;
     scheduledPostingEnabled: boolean;
-    scheduledPostMinIntervalMinutes: number;
   };
   now?: Clock;
 }): BotApp {
@@ -35,18 +34,24 @@ export function createBotApp(options: {
       return;
     }
 
+    const runtimeSettings = await loadRuntimeSettings(options.db);
+    const notificationFetchLimit = readIntegerSetting(runtimeSettings, "NOTIFICATION_FETCH_LIMIT", 20);
+    const reactionFetchLimit = readIntegerSetting(runtimeSettings, "REACTION_FETCH_LIMIT", 100);
+
     await handleFollowProbe({
       db: options.db,
       client: options.misskey.client,
       logger: options.logger,
-      maxFollows: 1,
+      maxFollows: readIntegerSetting(runtimeSettings, "FOLLOW_PROBE_MAX_PER_POLL", 1),
+      notificationFetchLimit,
       at
     });
     await handleReplyProbe({
       db: options.db,
       client: options.misskey.client,
       logger: options.logger,
-      maxReplies: options.misskey.replyProbeMaxPerPoll,
+      maxReplies: readIntegerSetting(runtimeSettings, "REPLY_PROBE_MAX_PER_POLL", 1),
+      notificationFetchLimit,
       at
     });
     await handleConsentReactions({
@@ -54,6 +59,7 @@ export function createBotApp(options: {
       client: options.misskey.client,
       logger: options.logger,
       pinnedConsentNoteId: options.misskey.pinnedConsentNoteId,
+      reactionFetchLimit,
       at
     });
   }
@@ -72,8 +78,7 @@ export function createBotApp(options: {
       logger: options.logger,
       client: options.misskey.client,
       at,
-      enabled: options.misskey.scheduledPostingEnabled,
-      minIntervalMinutes: options.misskey.scheduledPostMinIntervalMinutes
+      enabled: options.misskey.scheduledPostingEnabled
     });
   }
 

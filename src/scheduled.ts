@@ -34,9 +34,7 @@ export async function runScheduled(mode: ScheduledMode): Promise<void> {
     misskey: {
       client: misskeyClient,
       pinnedConsentNoteId: config.pinnedConsentNoteId,
-      replyProbeMaxPerPoll: config.replyProbeMaxPerPoll,
-      scheduledPostingEnabled: config.scheduledPostingEnabled,
-      scheduledPostMinIntervalMinutes: config.scheduledPostMinIntervalMinutes
+      scheduledPostingEnabled: config.scheduledPostingEnabled
     }
   });
 

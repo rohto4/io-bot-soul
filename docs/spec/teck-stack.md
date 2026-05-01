@@ -181,7 +181,7 @@
 - 初期状態では `false` とし、手動実行でskipログを確認してから有効化する。
 - Actionsの公式ActionはNode 20 runtime deprecation warningを避けるため、`actions/checkout@v6` と `actions/setup-node@v6` を使う。
 - Neonの接続文字列はpooled connection stringを優先する。
-- `pg` が `sslmode=require` に対して将来挙動変更予定の警告を出す。現時点では接続・migration・常駐pollingは成功している。
+- `pg` が `sslmode=require` に対して将来挙動変更予定の警告を出す。可能ならNeonの `DATABASE_URL` は `sslmode=verify-full` を明示する。
 
 ### 初期テーブル候補
 
@@ -208,8 +208,8 @@
 - AI生成・分類は、Chutesをprimary、OpenAIをfallbackとして扱う。
 - OpenAI fallbackは従量課金API keyを使い、Chutes失敗時の「絶対死守ライン」とする。
 - API keyは `.env.local` とGitHub Actions secretsに置き、Gitには入れない。
-- model id、base URL、timeout、retry、token上限、temperature、日次fallback上限などはDBマスタで管理する。
-- GitHub Actions variablesにはAI設定値を大量登録しない。
+- 投稿確率、最短投稿間隔、model id、base URL、timeout、retry、token上限、temperature、日次fallback上限などはDBマスタ `m_runtime_setting` で管理する。
+- GitHub Actions variablesには運用調整値を大量登録しない。
 - 初期はmigrationでDBへデフォルト値を投入し、P1/P2でGUI編集に対応する。
 
 ### 疎通確認結果

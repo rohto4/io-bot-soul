@@ -375,17 +375,18 @@ CREATE TABLE m_emotion_asset (
 );
 ```
 
-### `m_ai_setting`
+### `m_runtime_setting`
 
-AI provider、model id、timeout、retry、token上限、temperature、fallback方針などの非secret設定。
+投稿確率、最短投稿間隔、取得limit、rate limit、AI provider、model id、timeout、retry、token上限、temperature、fallback方針などの非secret運用設定。
 
 API keyは保存しない。`CHUTES_API_KEY` と `OPENAI_API_KEY` は `.env.local` またはGitHub Actions secretsに置く。
 
 ```sql
-CREATE TABLE m_ai_setting (
+CREATE TABLE m_runtime_setting (
   setting_key TEXT PRIMARY KEY,
   setting_value TEXT NOT NULL,
   value_type TEXT NOT NULL,
+  category TEXT NOT NULL,
   description TEXT,
   updated_at TEXT NOT NULL
 );
@@ -393,6 +394,24 @@ CREATE TABLE m_ai_setting (
 
 初期値候補:
 
+- `SCHEDULED_POST_MIN_INTERVAL_MINUTES`: `5`
+- `POST_PROBABILITY_5_MIN`: `0.10`
+- `POST_PROBABILITY_10_MIN`: `0.15`
+- `POST_PROBABILITY_30_MIN`: `0.80`
+- `POST_PROBABILITY_60_MIN`: `0.95`
+- `FOLLOW_PROBE_MAX_PER_POLL`: `1`
+- `REPLY_PROBE_MAX_PER_POLL`: `1`
+- `NOTIFICATION_FETCH_LIMIT`: `20`
+- `REACTION_FETCH_LIMIT`: `100`
+- `NOTES_PER_HOUR`: `5`
+- `NOTES_PER_DAY`: `50`
+- `QUOTE_RENOTES_PER_DAY`: `5`
+- `USER_TRIGGERED_POSTS_PER_5MIN`: `5`
+- `USER_TRIGGERED_COOLDOWN_SECONDS`: `300`
+- `TL_OBSERVATION_NOTE_COUNT`: `20`
+- `TL_OBSERVATION_POST_PROBABILITY`: `0.20`
+- `QUOTE_RENOTE_PROBABILITY`: `0.20`
+- `EMOTION_ASSET_DEFAULT_COOLDOWN_HOURS`: `24`
 - `AI_PRIMARY_PROVIDER`: `chutes`
 - `AI_FALLBACK_PROVIDER`: `openai`
 - `AI_FALLBACK_ENABLED`: `true`
@@ -417,6 +436,14 @@ CREATE TABLE m_ai_setting (
 - `AI_SKIP_POST_ON_FALLBACK_FAILURE`: `true`
 - `AI_LOG_PROMPT`: `false`
 - `AI_LOG_RESPONSE_SUMMARY`: `true`
+
+現在値確認SQL:
+
+```sql
+SELECT category, setting_key, setting_value, value_type, description
+FROM m_runtime_setting
+ORDER BY category, setting_key;
+```
 
 ## Indexes
 

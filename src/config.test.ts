@@ -14,16 +14,12 @@ describe("loadConfig", () => {
       POLL_INTERVAL_SECONDS: "60",
       POST_DRAW_INTERVAL_SECONDS: "300",
       SCHEDULED_POSTING_ENABLED: "true",
-      SCHEDULED_POST_MIN_INTERVAL_MINUTES: "5",
-      REPLY_PROBE_MAX_PER_POLL: "2",
       LOG_LEVEL: "debug"
     });
 
     expect(config.pollIntervalMs).toBe(60_000);
     expect(config.postDrawIntervalMs).toBe(300_000);
-    expect(config.replyProbeMaxPerPoll).toBe(2);
     expect(config.scheduledPostingEnabled).toBe(true);
-    expect(config.scheduledPostMinIntervalMinutes).toBe(5);
     expect(config.databaseProvider).toBe("postgres");
     expect(config.databaseUrl).toBe("postgresql://example");
     expect(config.misskeyHost).toBe("https://misskey.io");
@@ -42,8 +38,6 @@ describe("loadConfig", () => {
     expect(config.pollIntervalMs).toBe(60_000);
     expect(config.postDrawIntervalMs).toBe(300_000);
     expect(config.scheduledPostingEnabled).toBe(false);
-    expect(config.scheduledPostMinIntervalMinutes).toBe(5);
-    expect(config.replyProbeMaxPerPoll).toBe(1);
   });
 
   it("rejects invalid interval values", () => {

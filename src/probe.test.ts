@@ -49,6 +49,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       maxFollows: 1,
+      notificationFetchLimit: 20,
       at: "2026-05-01T00:00:00.000Z"
     });
     await handleFollowProbe({
@@ -56,6 +57,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       maxFollows: 1,
+      notificationFetchLimit: 20,
       at: "2026-05-01T00:01:00.000Z"
     });
 
@@ -92,6 +94,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       maxFollows: 1,
+      notificationFetchLimit: 20,
       at: "2026-05-01T00:00:00.000Z"
     });
 
@@ -123,6 +126,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       maxReplies: 1,
+      notificationFetchLimit: 20,
       at: "2026-05-01T00:00:00.000Z"
     });
     await handleReplyProbe({
@@ -130,6 +134,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       maxReplies: 1,
+      notificationFetchLimit: 20,
       at: "2026-05-01T00:01:00.000Z"
     });
 
@@ -165,6 +170,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       maxReplies: 1,
+      notificationFetchLimit: 20,
       at: "2026-05-01T00:00:00.000Z"
     });
 
@@ -200,6 +206,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       maxReplies: 1,
+      notificationFetchLimit: 20,
       at: "2026-05-01T00:00:00.000Z"
     });
 
@@ -235,6 +242,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       maxReplies: 1,
+      notificationFetchLimit: 20,
       at: "2026-05-01T00:00:00.000Z"
     });
 
@@ -276,6 +284,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       pinnedConsentNoteId: "pinned",
+      reactionFetchLimit: 100,
       at: "2026-05-01T00:02:00.000Z"
     });
 
@@ -326,6 +335,7 @@ describe("probe", () => {
       client,
       logger: logger(),
       pinnedConsentNoteId: "pinned",
+      reactionFetchLimit: 100,
       at: "2026-05-01T00:02:00.000Z"
     });
 

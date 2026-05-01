@@ -21,9 +21,7 @@ const app = createBotApp({
   misskey: {
     client: misskeyClient,
     pinnedConsentNoteId: config.pinnedConsentNoteId,
-    replyProbeMaxPerPoll: config.replyProbeMaxPerPoll,
-    scheduledPostingEnabled: config.scheduledPostingEnabled,
-    scheduledPostMinIntervalMinutes: config.scheduledPostMinIntervalMinutes
+    scheduledPostingEnabled: config.scheduledPostingEnabled
   }
 });
 
@@ -32,9 +30,7 @@ logger.info("bot.start", {
   adminAccount: config.adminAccount,
   pollIntervalMs: config.pollIntervalMs,
   postDrawIntervalMs: config.postDrawIntervalMs,
-  scheduledPostingEnabled: config.scheduledPostingEnabled,
-  scheduledPostMinIntervalMinutes: config.scheduledPostMinIntervalMinutes,
-  replyProbeMaxPerPoll: config.replyProbeMaxPerPoll
+  scheduledPostingEnabled: config.scheduledPostingEnabled
 });
 
 const stop = app.start({

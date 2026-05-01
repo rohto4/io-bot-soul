@@ -15,24 +15,30 @@ describe("migrate", () => {
     expect(tables).toContain("experience_logs");
     expect(tables).toContain("posts");
     expect(tables).toContain("m_emotion_asset");
-    expect(tables).toContain("m_ai_setting");
+    expect(tables).toContain("m_runtime_setting");
     expect(await db.get("SELECT COUNT(*) AS count FROM bot_state")).toEqual({ count: 1 });
   });
 
-  it("seeds AI provider settings", async () => {
+  it("seeds runtime settings in one table", async () => {
     const db = await createTestDb();
 
     await expect(
-      db.get("SELECT setting_value, value_type FROM m_ai_setting WHERE setting_key = 'CHUTES_MODEL_TEXT'")
+      db.get(
+        "SELECT setting_value, value_type, category FROM m_runtime_setting WHERE setting_key = 'CHUTES_MODEL_TEXT'"
+      )
     ).resolves.toEqual({
       setting_value: "moonshotai/Kimi-K2.5-TEE",
-      value_type: "string"
+      value_type: "string",
+      category: "ai"
     });
     await expect(
-      db.get("SELECT setting_value, value_type FROM m_ai_setting WHERE setting_key = 'AI_CLASSIFIER_MAX_TOKENS'")
+      db.get(
+        "SELECT setting_value, value_type, category FROM m_runtime_setting WHERE setting_key = 'POST_PROBABILITY_30_MIN'"
+      )
     ).resolves.toEqual({
-      setting_value: "300",
-      value_type: "integer"
+      setting_value: "0.80",
+      value_type: "number",
+      category: "scheduling"
     });
   });
 

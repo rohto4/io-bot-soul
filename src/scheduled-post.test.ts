@@ -24,8 +24,7 @@ describe("runScheduledPostDraw", () => {
       logger,
       client,
       at: "2026-05-01T00:00:00.000Z",
-      enabled: false,
-      minIntervalMinutes: 5
+      enabled: false
     });
 
     expect(client.createNote).not.toHaveBeenCalled();
@@ -58,8 +57,7 @@ describe("runScheduledPostDraw", () => {
       logger,
       client,
       at: "2026-05-01T00:30:00.000Z",
-      enabled: true,
-      minIntervalMinutes: 5
+      enabled: true
     });
 
     expect(client.createNote).not.toHaveBeenCalled();
@@ -94,7 +92,6 @@ describe("runScheduledPostDraw", () => {
       client,
       at: "2026-05-01T00:30:00.000Z",
       enabled: true,
-      minIntervalMinutes: 5,
       random: () => 0.9
     });
 
@@ -133,8 +130,44 @@ describe("runScheduledPostDraw", () => {
       client,
       at: "2026-05-01T00:30:00.000Z",
       enabled: true,
-      minIntervalMinutes: 5,
       random: () => 0.1
+    });
+
+    expect(client.createNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses runtime settings from DB for scheduled post probability", async () => {
+    const db = await createTestDb();
+    const logger = createLogger();
+    const client = {
+      createNote: vi.fn(async () => ({ id: "posted-note" }))
+    };
+
+    await db.run(
+      `
+      UPDATE m_runtime_setting
+      SET setting_value = '0.95'
+      WHERE setting_key = 'POST_PROBABILITY_10_MIN'
+      `
+    );
+    await db.run(
+      `
+      INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+      VALUES (@noteId, @postedAt, 'normal', 'recent', 'home', 'test', @postedAt)
+      `,
+      {
+        noteId: "recent-note",
+        postedAt: "2026-05-01T00:20:00.000Z"
+      }
+    );
+
+    await runScheduledPostDraw({
+      db,
+      logger,
+      client,
+      at: "2026-05-01T00:30:00.000Z",
+      enabled: true,
+      random: () => 0.9
     });
 
     expect(client.createNote).toHaveBeenCalledTimes(1);
@@ -152,8 +185,7 @@ describe("runScheduledPostDraw", () => {
       logger,
       client,
       at: "2026-05-01T12:00:00.000Z",
-      enabled: true,
-      minIntervalMinutes: 5
+      enabled: true
     });
 
     expect(client.createNote).toHaveBeenCalledWith({

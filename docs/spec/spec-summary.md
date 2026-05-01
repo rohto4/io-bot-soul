@@ -23,7 +23,7 @@
 - 定期ノートは直近通常投稿から5分未満なら必ずskipし、5分以上なら確率抽選に入る。
 - 投稿確率の目安は5分後10%、10分後15%、30分後80%、1時間超95%。
 - AI生成・分類はChutesをprimary、OpenAIをfallbackとして扱う。
-- AI API keyはsecretとして扱い、provider設定やtoken上限などの非secret設定はDBマスタで管理する。
+- AI API keyはsecretとして扱い、投稿確率、最短投稿間隔、provider設定やtoken上限などの非secret設定はDBマスタ `m_runtime_setting` で管理する。
 - ChutesのKimi系モデルは内部推論で `reasoning_tokens` を消費するため、短文分類でもtoken上限を小さくしすぎない。
 
 ## 仕様ファイル

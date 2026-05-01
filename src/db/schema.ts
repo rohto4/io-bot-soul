@@ -204,10 +204,11 @@ CREATE TABLE IF NOT EXISTS m_emotion_asset (
   description TEXT
 );
 
-CREATE TABLE IF NOT EXISTS m_ai_setting (
+CREATE TABLE IF NOT EXISTS m_runtime_setting (
   setting_key TEXT PRIMARY KEY,
   setting_value TEXT NOT NULL,
   value_type TEXT NOT NULL,
+  category TEXT NOT NULL,
   description TEXT,
   updated_at TEXT NOT NULL
 );
@@ -243,45 +244,63 @@ export async function migrate(db: DbClient, provider: DatabaseProvider): Promise
     `,
     { now }
   );
-  await seedAiSettings(db, now);
+  await seedRuntimeSettings(db, now);
 }
 
-async function seedAiSettings(db: DbClient, now: string): Promise<void> {
+async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
   const settings = [
-    ["AI_PRIMARY_PROVIDER", "chutes", "string", "Primary AI provider."],
-    ["AI_FALLBACK_PROVIDER", "openai", "string", "Fallback AI provider."],
-    ["AI_FALLBACK_ENABLED", "true", "boolean", "Whether fallback provider can be used."],
-    ["CHUTES_BASE_URL", "https://llm.chutes.ai/v1", "string", "Chutes OpenAI-compatible base URL."],
-    ["CHUTES_MODEL_TEXT", "moonshotai/Kimi-K2.5-TEE", "string", "Chutes model for text generation."],
-    ["CHUTES_MODEL_CLASSIFIER", "moonshotai/Kimi-K2.5-TEE", "string", "Chutes model for classification."],
-    ["CHUTES_TIMEOUT_MS", "30000", "integer", "Chutes request timeout in milliseconds."],
-    ["CHUTES_MAX_RETRIES", "1", "integer", "Chutes retry count."],
-    ["OPENAI_BASE_URL", "https://api.openai.com/v1", "string", "OpenAI base URL."],
-    ["OPENAI_MODEL_TEXT", "gpt-5.4-mini", "string", "OpenAI fallback model for text generation."],
-    ["OPENAI_MODEL_CLASSIFIER", "gpt-5.4-mini", "string", "OpenAI fallback model for classification."],
-    ["OPENAI_TIMEOUT_MS", "30000", "integer", "OpenAI request timeout in milliseconds."],
-    ["OPENAI_MAX_RETRIES", "1", "integer", "OpenAI retry count."],
-    ["AI_DAILY_MAX_REQUESTS", "200", "integer", "Daily maximum AI requests."],
-    ["AI_DAILY_MAX_FALLBACK_REQUESTS", "30", "integer", "Daily maximum fallback provider requests."],
-    ["AI_POST_GENERATION_MAX_TOKENS", "600", "integer", "Maximum text generation tokens."],
-    ["AI_CLASSIFIER_MAX_TOKENS", "300", "integer", "Maximum classifier tokens."],
-    ["AI_TEMPERATURE_TEXT", "0.8", "number", "Text generation temperature."],
-    ["AI_TEMPERATURE_CLASSIFIER", "0.0", "number", "Classifier temperature."],
-    ["AI_REQUIRE_CLASSIFIER_PASS", "true", "boolean", "Whether classifier pass is required before posting."],
-    ["AI_SKIP_POST_ON_AI_FAILURE", "true", "boolean", "Skip posting when AI fails."],
-    ["AI_SKIP_POST_ON_FALLBACK_FAILURE", "true", "boolean", "Skip posting when fallback also fails."],
-    ["AI_LOG_PROMPT", "false", "boolean", "Whether prompt text can be logged."],
-    ["AI_LOG_RESPONSE_SUMMARY", "true", "boolean", "Whether response summaries can be logged."]
+    ["SCHEDULED_POST_MIN_INTERVAL_MINUTES", "5", "integer", "scheduling", "Hard minimum minutes between normal posts."],
+    ["POST_PROBABILITY_5_MIN", "0.10", "number", "scheduling", "Post probability after 5 minutes."],
+    ["POST_PROBABILITY_10_MIN", "0.15", "number", "scheduling", "Post probability after 10 minutes."],
+    ["POST_PROBABILITY_30_MIN", "0.80", "number", "scheduling", "Post probability after 30 minutes."],
+    ["POST_PROBABILITY_60_MIN", "0.95", "number", "scheduling", "Post probability after 60 minutes."],
+    ["FOLLOW_PROBE_MAX_PER_POLL", "1", "integer", "polling", "Maximum follow notifications handled per poll."],
+    ["REPLY_PROBE_MAX_PER_POLL", "1", "integer", "polling", "Maximum reply notifications handled per poll."],
+    ["NOTIFICATION_FETCH_LIMIT", "20", "integer", "polling", "Notification fetch limit."],
+    ["REACTION_FETCH_LIMIT", "100", "integer", "polling", "Reaction fetch limit."],
+    ["NOTES_PER_HOUR", "5", "integer", "rate_limit", "Maximum notes per hour."],
+    ["NOTES_PER_DAY", "50", "integer", "rate_limit", "Maximum notes per day."],
+    ["QUOTE_RENOTES_PER_DAY", "5", "integer", "rate_limit", "Maximum quote renotes per day."],
+    ["USER_TRIGGERED_POSTS_PER_5MIN", "5", "integer", "rate_limit", "Maximum user-triggered posts per five minutes."],
+    ["USER_TRIGGERED_COOLDOWN_SECONDS", "300", "integer", "rate_limit", "Cooldown after user-triggered post burst."],
+    ["TL_OBSERVATION_NOTE_COUNT", "20", "integer", "timeline", "Number of notes used for TL observation."],
+    ["TL_OBSERVATION_POST_PROBABILITY", "0.20", "number", "timeline", "Probability to post TL observation."],
+    ["QUOTE_RENOTE_PROBABILITY", "0.20", "number", "experience", "Probability to quote renote when using an experience source."],
+    ["EMOTION_ASSET_DEFAULT_COOLDOWN_HOURS", "24", "integer", "asset", "Default cooldown hours for emotion assets."],
+    ["AI_PRIMARY_PROVIDER", "chutes", "string", "ai", "Primary AI provider."],
+    ["AI_FALLBACK_PROVIDER", "openai", "string", "ai", "Fallback AI provider."],
+    ["AI_FALLBACK_ENABLED", "true", "boolean", "ai", "Whether fallback provider can be used."],
+    ["CHUTES_BASE_URL", "https://llm.chutes.ai/v1", "string", "ai", "Chutes OpenAI-compatible base URL."],
+    ["CHUTES_MODEL_TEXT", "moonshotai/Kimi-K2.5-TEE", "string", "ai", "Chutes model for text generation."],
+    ["CHUTES_MODEL_CLASSIFIER", "moonshotai/Kimi-K2.5-TEE", "string", "ai", "Chutes model for classification."],
+    ["CHUTES_TIMEOUT_MS", "30000", "integer", "ai", "Chutes request timeout in milliseconds."],
+    ["CHUTES_MAX_RETRIES", "1", "integer", "ai", "Chutes retry count."],
+    ["OPENAI_BASE_URL", "https://api.openai.com/v1", "string", "ai", "OpenAI base URL."],
+    ["OPENAI_MODEL_TEXT", "gpt-5.4-mini", "string", "ai", "OpenAI fallback model for text generation."],
+    ["OPENAI_MODEL_CLASSIFIER", "gpt-5.4-mini", "string", "ai", "OpenAI fallback model for classification."],
+    ["OPENAI_TIMEOUT_MS", "30000", "integer", "ai", "OpenAI request timeout in milliseconds."],
+    ["OPENAI_MAX_RETRIES", "1", "integer", "ai", "OpenAI retry count."],
+    ["AI_DAILY_MAX_REQUESTS", "200", "integer", "ai", "Daily maximum AI requests."],
+    ["AI_DAILY_MAX_FALLBACK_REQUESTS", "30", "integer", "ai", "Daily maximum fallback provider requests."],
+    ["AI_POST_GENERATION_MAX_TOKENS", "600", "integer", "ai", "Maximum text generation tokens."],
+    ["AI_CLASSIFIER_MAX_TOKENS", "300", "integer", "ai", "Maximum classifier tokens."],
+    ["AI_TEMPERATURE_TEXT", "0.8", "number", "ai", "Text generation temperature."],
+    ["AI_TEMPERATURE_CLASSIFIER", "0.0", "number", "ai", "Classifier temperature."],
+    ["AI_REQUIRE_CLASSIFIER_PASS", "true", "boolean", "ai", "Whether classifier pass is required before posting."],
+    ["AI_SKIP_POST_ON_AI_FAILURE", "true", "boolean", "ai", "Skip posting when AI fails."],
+    ["AI_SKIP_POST_ON_FALLBACK_FAILURE", "true", "boolean", "ai", "Skip posting when fallback also fails."],
+    ["AI_LOG_PROMPT", "false", "boolean", "ai", "Whether prompt text can be logged."],
+    ["AI_LOG_RESPONSE_SUMMARY", "true", "boolean", "ai", "Whether response summaries can be logged."]
   ];
 
-  for (const [key, value, valueType, description] of settings) {
+  for (const [key, value, valueType, category, description] of settings) {
     await db.run(
       `
-      INSERT INTO m_ai_setting (setting_key, setting_value, value_type, description, updated_at)
-      VALUES (@key, @value, @valueType, @description, @updatedAt)
+      INSERT INTO m_runtime_setting (setting_key, setting_value, value_type, category, description, updated_at)
+      VALUES (@key, @value, @valueType, @category, @description, @updatedAt)
       ON CONFLICT(setting_key) DO NOTHING
       `,
-      { key, value, valueType, description, updatedAt: now }
+      { key, value, valueType, category, description, updatedAt: now }
     );
   }
 }

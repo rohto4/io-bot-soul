@@ -17,7 +17,6 @@
 - GitHub repository secretsに `DATABASE_URL` を登録する。
 - GitHub repository secretsに `CHUTES_API_KEY` を登録する。
 - GitHub repository secretsに `OPENAI_API_KEY` を登録する。
-- GitHub repository variablesに `SCHEDULED_POST_MIN_INTERVAL_MINUTES=5` を登録する。
 - 初回skip確認用に、GitHub repository variablesの `SCHEDULED_POSTING_ENABLED=false` を登録する。
 - GitHub Actionsを手動実行する。
 - skip確認後、GitHub repository variablesの `SCHEDULED_POSTING_ENABLED=true` に変更する。
@@ -33,8 +32,8 @@
 ## AI設定の扱い
 
 - GitHubに登録するAI secretは `CHUTES_API_KEY` と `OPENAI_API_KEY` だけにする。
-- AI provider、model id、timeout、retry、token上限、temperature、日次上限、fallback方針はDBマスタで管理する。
-- GitHub repository variablesへAI設定値を大量登録しない。
+- 投稿確率、最短投稿間隔、AI provider、model id、timeout、retry、token上限、temperature、日次上限、fallback方針はDBマスタ `m_runtime_setting` で管理する。
+- GitHub repository variablesへ運用調整値を大量登録しない。
 - GUIからAI設定を編集できる管理画面はP1/P2で実装する。
 - 初期はmigrationでDBへデフォルト値を投入し、必要ならSQLまたは簡易CLIで更新する。
 
@@ -46,7 +45,15 @@
 - ピン留め同意ノートが公開され、`PINNED_CONSENT_NOTE_ID` が正しい。
 - Misskey tokenに必要権限がある。
 - Neon/Postgresの `DATABASE_URL` がローカルDockerとGitHub Actionsで同じDBを指している。
+- `DATABASE_URL` のSSL指定は、可能なら `sslmode=verify-full` にしてpgの将来警告を避ける。
 - `docs/spec/base-personal.md` の基本画像参照が [CoffeeBean_V1_2_2026-04-30-23-42-08.png](../../images/CoffeeBean_V1_2_2026-04-30-23-42-08.png) になっている。
+- `m_runtime_setting` を次のSQLで確認できる。
+
+```sql
+SELECT category, setting_key, setting_value, value_type, description
+FROM m_runtime_setting
+ORDER BY category, setting_key;
+```
 
 ## Actions確認事項
 

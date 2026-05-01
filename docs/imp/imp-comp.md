@@ -44,6 +44,8 @@
 - 定期ノート投稿は `SCHEDULED_POSTING_ENABLED` で明示的に有効化する方式にした。
 - 有効化時は直近通常投稿から `SCHEDULED_POST_MIN_INTERVAL_MINUTES` 分以上空いている場合に投稿抽選へ入る。
 - 投稿確率は経過時間で上がり、目安は5分後10%、10分後15%、30分後80%、1時間超95%。
+- `SCHEDULED_POST_MIN_INTERVAL_MINUTES` と投稿確率はDBマスタ `m_runtime_setting` へ移した。
+- リプライ・フォロー・リアクション監視の処理上限も `m_runtime_setting` へ移した。
 - 投稿成功時は `posts` に `kind = normal`、`generated_reason = scheduled_post_draw_v0` で記録し、`bot_state.last_note_at` を更新する。
 - workflowは30分ごとのscheduleと手動実行に対応。
 - 現時点の投稿文はAI生成や体験候補参照を行わない固定テンプレートで、体験候補選定と引用Renote連携は未実装。
@@ -60,8 +62,8 @@
 
 - AI生成・分類はChutesをprimary、OpenAIをfallbackにする方針を確定。
 - `.env.example` とGitHub Actions workflowには `CHUTES_API_KEY`、`OPENAI_API_KEY` のsecretだけを追加。
-- AI provider、model id、使用量上限、失敗時挙動などの非secret設定はDBマスタ `m_ai_setting` で管理する方針に変更。
-- `m_ai_setting` テーブルと初期値seedを追加。
+- AI provider、model id、使用量上限、失敗時挙動などの非secret設定はDBマスタ `m_runtime_setting` で管理する方針に変更。
+- `m_runtime_setting` テーブルと初期値seedを追加。
 - Chutes API keyの疎通を確認。
 - Chutes `/models` の取得を確認。
 - Chutesの正式model idは `moonshotai/Kimi-K2.5-TEE` と確認。

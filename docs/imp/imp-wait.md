@@ -25,7 +25,6 @@
 ## 投稿スケジューリング
 
 - 30分周期の体験候補収集と、5分抽選投稿をどう接続するか。
-- 直前ノートからの経過時間に応じた確率曲線の具体式。
 - おはよう / おやすみ確率の具体式。
 - 寝言を月2回程度にする確率設計。
 - 寝言の内容の安全範囲。
@@ -37,32 +36,8 @@
   - `CHUTES_API_KEY`
   - `OPENAI_API_KEY`
 - AI設定値はGitHub Actions variablesではなくDBマスタで管理する。
-- `m_ai_setting` または同等のAI設定マスタを追加する。
-- 初期値として次をDBへ投入する。
-  - `AI_PRIMARY_PROVIDER=chutes`
-  - `AI_FALLBACK_PROVIDER=openai`
-  - `AI_FALLBACK_ENABLED=true`
-  - `CHUTES_BASE_URL=https://llm.chutes.ai/v1`
-  - `CHUTES_MODEL_TEXT=moonshotai/Kimi-K2.5-TEE`
-  - `CHUTES_MODEL_CLASSIFIER=moonshotai/Kimi-K2.5-TEE`
-  - `CHUTES_TIMEOUT_MS=30000`
-  - `CHUTES_MAX_RETRIES=1`
-  - `OPENAI_BASE_URL=https://api.openai.com/v1`
-  - `OPENAI_MODEL_TEXT=gpt-5.4-mini`
-  - `OPENAI_MODEL_CLASSIFIER=gpt-5.4-mini`
-  - `OPENAI_TIMEOUT_MS=30000`
-  - `OPENAI_MAX_RETRIES=1`
-  - `AI_DAILY_MAX_REQUESTS=200`
-  - `AI_DAILY_MAX_FALLBACK_REQUESTS=30`
-  - `AI_POST_GENERATION_MAX_TOKENS=600`
-  - `AI_CLASSIFIER_MAX_TOKENS=300`
-  - `AI_TEMPERATURE_TEXT=0.8`
-  - `AI_TEMPERATURE_CLASSIFIER=0.0`
-  - `AI_REQUIRE_CLASSIFIER_PASS=true`
-  - `AI_SKIP_POST_ON_AI_FAILURE=true`
-  - `AI_SKIP_POST_ON_FALLBACK_FAILURE=true`
-  - `AI_LOG_PROMPT=false`
-  - `AI_LOG_RESPONSE_SUMMARY=true`
+- 運用調整値は `m_runtime_setting` に集約済み。
+- AI provider設定の初期値は `m_runtime_setting` へseed済み。
 - P1/P2でAI設定をGUIから編集できる管理画面を作る。
 - Chutesは `max_tokens`、OpenAI `gpt-5.4-mini` は `max_completion_tokens` を使う。
 - Chutes Kimiは内部推論で `reasoning_tokens` を消費するため、分類でも `max_tokens=256` 以上を初期値にする。
