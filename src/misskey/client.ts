@@ -47,6 +47,7 @@ export type MisskeyClient = {
     replyId?: string;
     renoteId?: string;
     visibility?: "public" | "home" | "followers" | "specified";
+    visibleUserIds?: string[];
   }): Promise<{ id: string }>;
   getUserNotes(input: { userId: string; limit: number }): Promise<MisskeyNote[]>;
   createFollowing(input: { userId: string }): Promise<void>;

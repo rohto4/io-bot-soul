@@ -147,7 +147,9 @@ async function handleFollowNotification(options: {
     });
   }
   const guide = await options.client.createNote({
-    text: buildFollowGuide(user)
+    text: buildFollowGuide(user),
+    visibility: "specified",
+    visibleUserIds: [user.id]
   });
 
   await options.db.run(
