@@ -2,6 +2,12 @@
 
 ## リファクタリング候補
 
+### schema.ts の EXPERIENCE_MEMORY_ENABLED 重複 seed
+- **現在**: `seedRuntimeSettings()` で `EXPERIENCE_MEMORY_ENABLED` が2行連続で定義されている（schema.ts 296-297行）
+- **問題**: `ON CONFLICT DO NOTHING` のため実害はないが、コードの誤り
+- **対応**: 重複行を1行削除する
+- **優先度**: 低（次に schema.ts を触る際に合わせて修正）
+
 ### generate-tl-post.ts が未使用
 - **現在**: `src/ai/generate-tl-post.ts` が存在するが、action-flow-v2 以降どこからもimportされていない
 - **原因**: v2でtl_observationポストを廃止し、通常ノートに統合したため
