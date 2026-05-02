@@ -96,8 +96,7 @@ function buildUserMessage(options: {
       lines.push("");
       lines.push(`## 文体・構成パターン: ${hint.style.name}`);
       lines.push(hint.style.description);
-      lines.push("");
-      lines.push("構成の参考例（内容はお題に合わせて変えること）:");
+      lines.push("各行の役割（内容はお題から自由に作ること。この型の言葉は使わないこと）:");
       lines.push(hint.style.example);
     }
     lines.push("");
