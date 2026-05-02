@@ -60,26 +60,12 @@ function buildUserMessage(options: {
     }
   }
 
-  // reminisce: 蓄積を参考に連想
+  // reminisce: ランダム5件から連想
   if (depth === "reminisce" && tieredPosts.length > 0) {
-    const recentPosts = tieredPosts.filter((p) => p.tier === "recent");
-    const midPosts    = tieredPosts.filter((p) => p.tier === "mid");
-    const oldPosts    = tieredPosts.filter((p) => p.tier === "old");
     lines.push("");
     lines.push("## 過去の投稿からの連想（直接引用・繰り返しはしないこと）");
     lines.push("以下の過去の投稿をきっかけに、何か連想・発展させたことをノートしてください。");
-    if (recentPosts.length > 0) {
-      lines.push(""); lines.push("### 最近の記憶（直近1週間）");
-      for (const post of recentPosts) lines.push(formatPost(post, 100));
-    }
-    if (midPosts.length > 0) {
-      lines.push(""); lines.push("### 少し前の記憶");
-      for (const post of midPosts) lines.push(formatPost(post, 80));
-    }
-    if (oldPosts.length > 0) {
-      lines.push(""); lines.push("### 断片的な記憶");
-      for (const post of oldPosts) lines.push(formatPost(post, 60));
-    }
+    for (const post of tieredPosts) lines.push(formatPost(post, 100));
   }
 
   // reference: 特定の1件に言及
@@ -139,51 +125,20 @@ export async function generatePostText(options: {
   let refPost: PostRow | undefined;
 
   if (depth !== "normal") {
-    const DAY_MS = 24 * 60 * 60 * 1000;
-    const nowMs = new Date(at).getTime();
-    const recentStart = new Date(nowMs - 7 * DAY_MS).toISOString();
-    const midStart    = new Date(nowMs - 30 * DAY_MS).toISOString();
-    const oldStart    = new Date(nowMs - 60 * DAY_MS).toISOString();
+    const oldStart = new Date(new Date(at).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
+    const limit = depth === "reference" ? 1 : 5;
 
     tieredPosts = await db.all<PostRow>(
-      `WITH
-       recent AS (
-         SELECT text, posted_at, 'recent' AS tier, kind
-         FROM posts
-         WHERE kind IN ('normal','tl_observation','quote_renote') AND posted_at >= @recent_start
-         ORDER BY posted_at DESC LIMIT 20
-       ),
-       mid_n AS (
-         SELECT text, posted_at, kind,
-                ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
-         FROM posts
-         WHERE kind IN ('normal','tl_observation','quote_renote')
-           AND posted_at >= @mid_start AND posted_at < @recent_start
-       ),
-       mid AS (
-         SELECT text, posted_at, 'mid' AS tier, kind FROM mid_n
-         WHERE (rn - 1) % 3 = 0 LIMIT 10
-       ),
-       old_n AS (
-         SELECT text, posted_at, kind,
-                ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
-         FROM posts
-         WHERE kind IN ('normal','tl_observation','quote_renote')
-           AND posted_at >= @old_start AND posted_at < @mid_start
-       ),
-       old AS (
-         SELECT text, posted_at, 'old' AS tier, kind FROM old_n
-         WHERE (rn - 1) % 10 = 0 LIMIT 5
-       )
-       SELECT text, posted_at, tier, kind FROM recent
-       UNION ALL SELECT text, posted_at, tier, kind FROM mid
-       UNION ALL SELECT text, posted_at, tier, kind FROM old
-       ORDER BY posted_at ASC`,
-      { recent_start: recentStart, mid_start: midStart, old_start: oldStart }
+      `SELECT text, posted_at, kind, 'recent' AS tier
+       FROM posts
+       WHERE kind IN ('normal','tl_observation','quote_renote')
+         AND posted_at >= @oldStart
+       ORDER BY RANDOM() LIMIT ${limit}`,
+      { oldStart }
     );
 
-    if (depth === "reference" && tieredPosts.length > 0) {
-      refPost = tieredPosts[Math.floor(Math.random() * tieredPosts.length)];
+    if (depth === "reference") {
+      refPost = tieredPosts[0];
     }
   }
 
