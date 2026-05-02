@@ -193,6 +193,32 @@ flowchart TD
     class B,D,E,G,I,M,O decision
 ```
 
+### Beta-Test1 モードの確率テーブル
+
+beta-test1 有効時の、5分 tick あたりの投稿内容別確率。
+
+| 内容 | 確率 | 計算式 |
+|---|---:|---|
+| 引用Renote | **20%** | TL観測 80% × 引用RN 25% |
+| TL観測ノート | **60%** | TL観測 80% × 引用RN外れ 75% |
+| 通常ノート | **~20%** | TL観測外れ 20% × 経過時間判定 |
+
+```mermaid
+flowchart TD
+    A[5分tick] --> B{TL観測ガチャ}
+    B -- 80% 当たり --> C{引用RNガチャ}
+    C -- 25% 当たり --> D[quote_renote 投稿]
+    C -- 75% 外れ --> E[tl_observation 投稿]
+    B -- 20% 外れ --> F{通常ノート抽選}
+    F -- 経過時間依存 --> G1[normal 投稿]
+    F -- 外れ --> G2[skip]
+
+    classDef implemented fill:#90EE90,stroke:#228B22
+    classDef decision fill:#87CEEB,stroke:#4169E1
+    class A,B,C,D,E,F,G1,G2 implemented
+    class B,C,F decision
+```
+
 ### P1以降の調整値
 
 | 調整値 | DBキー | 初期値 | 備考 |

@@ -103,6 +103,44 @@
 - テスト47件通過（tl-scan.test.ts 新規追加含む）。
 - Misskey API調査: 複数ユーザーID一括ノート取得APIは存在しない。`users/notes` は単一userId専用。
 
+## 2026-05-02 行動ガチャ3フェーズ構造リファクタ
+
+- `scheduled-post.ts` を「⑴ガチャ（random/DB読み取り）→ ⑵取得（Misskey API + AI安全分類）→ ⑶AI生成・投稿」の3フェーズ構造に全面書き換え。
+- TL観測ガチャが当たった場合は通常ノートへ絶対に落ちない（旧設計の fallthrough を削除）。
+- `too_few_summaries` / TL obs AI失敗 → skip（通常ノートにならない）。
+- `docs/spec/action-flow.md` に Mermaid で全体フローを記録。
+
+## 2026-05-02 beta-test1モード
+
+- `m_runtime_setting` に `BETA_TEST1_ENABLED=false` を追加。
+- ON時: TL観測80%・引用RN25%（overall 20%）・通常ノート経過時間5倍。
+- DB更新で即時反映（再起動不要）。
+
+## 2026-05-02 フォロー案内をDMに変更
+
+- `handleFollowNotification`: `visibility="specified"` + `visibleUserIds=[user.id]` に変更。
+- `MisskeyClient.createNote` に `visibleUserIds` を追加。
+
+## 2026-05-02 引用RN・TL観測を記憶参照に追加 + 体験ログ記録
+
+- `generate-post.ts` の tiered SQL を `kind='normal'` → `normal/tl_observation/quote_renote` に拡張。
+- `[TL観測]` `[引用RN]` ラベルでAIが種別を認識できるように。
+- 引用RN成功時に `experience_logs` に記録（source_note_id, source_user_id, summary）。
+- 引用RN候補: 直近24時間を優先して並べ、古い順はその後。
+
+## 2026-05-02 記憶深度ガチャ（MemoryDepth）
+
+- `note-hint.ts` に `MemoryDepth` 型を追加。normal 90% / reminisce 5% / reference 5%。
+- `generate-post.ts`: normal はtop3のみ（軽量）、reminisce は60日内ランダム5件、reference は60日内ランダム1件。
+- buildUserMessage をdepthに応じた3パターンのプロンプトに分岐。
+
+## 2026-05-02 お題・口調・文体パターンガチャ（NoteHint拡張）
+
+- `NoteHint` にお題（20種）・口調（6種）・文体パターン（4種）を追加。
+- 文体パターン: 短文観察 / 思考の連鎖 / 考察・断言型 / 生活感・行動報告。
+- 文体パターンは行ごとの役割説明のみで注入（具体的な例文を避け、内容の引っ張りを防止）。
+- normal depthのときのみ style を設定。reminisce/reference には設定しない。
+
 ## 2026-05-02 OpenCode / oh-my-openagent グローバル設定整備
 
 - グローバル `~/.config/opencode/opencode.json` に plugin エントリ・Chutes プロバイダー定義・デフォルトモデル設定がなく、io-bot-soul 以外のすべての PJ で oh-my-openagent と Chutes が動作しない状態だったことを特定した。

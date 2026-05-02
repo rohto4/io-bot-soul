@@ -62,7 +62,25 @@
 ## 5分抽選・フォロー返し・リプライの動作確認
 
 - 5分抽選・フォロー返し・リプライは実装済みで実機動作を確認済み（2026-05-02）。
-- `docker compose logs -f bot | grep -E "postDraw|scheduledPost|follow|reply|consent"` でログを確認。
+- `docker compose logs -f bot | grep -E "postDraw|scheduledPost|tlObservation|quoteRenote|follow|reply|consent"` でログを確認。
+
+## NoteHint（お題・口調・文体・記憶深度）の暫定値
+
+以下はコード内固定値。実投稿で偏りが出たら調整する。
+
+| 項目 | 暫定値 | 変更場所 |
+|---|---|---|
+| normal depth | 90% | `note-hint.ts` drawMemoryDepth |
+| reminisce depth | 5% | 同上 |
+| reference depth | 5% | 同上 |
+| 文体パターン数 | 4種 | `note-hint.ts` noteStyles |
+| お題数 | 20種 | `note-hint.ts` topics |
+| 口調数 | 6種 | `note-hint.ts` tones |
+
+改善候補（imp-plan Phase 2追加項目に記録済み）:
+- お題・口調・文体をDBマスタに移行してGUIから変更可能にする
+- 直近投稿の同カテゴリ連続を避ける重みづけ
+- 時間帯（朝・昼・夜・深夜）ごとの出現確率調整
 
 ## ローカルDocker常駐
 

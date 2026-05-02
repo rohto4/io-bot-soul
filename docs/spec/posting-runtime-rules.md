@@ -122,3 +122,38 @@ flowchart TD
 - `m_runtime_setting` がmigration済み。
 - 初回は `SCHEDULED_POSTING_ENABLED=false` でDockerを起動し、`scheduledPost.skip reason=disabled` を確認する。
 - `true` にする前に、misskey.io上の直近通常投稿から5分以上空いていることを確認する。
+
+## Beta-Test1 モード
+
+beta-test1 モードは、`BETA_TEST1_ENABLED=true` で有効になり、以下の動作に切り替わる。
+
+### 行動ガチャの確率変更
+
+| モード | TL観測確率 | 引用RN確率（TL観測内） | 全体での引用RN確率 | 通常ノート確率 |
+|---|---|---|---|---|
+| 通常 | 20% | 20% | **4%** | 80% |
+| beta-test1 | **80%** | **25%** | **20%** | 20% |
+
+### 通常ノートの経過時間倍率
+
+| モード | 経過時間倍率 | 5分後の実効確率 | 30分後の実効確率 |
+|---|---|---|---|
+| 通常 | 1.0 | 10% | 80% |
+| beta-test1 | **5.0** | 1分後→5分換算で10% | 6分後→30分換算で80% |
+
+### 切り替え方法
+
+```sql
+-- 有効化
+UPDATE m_runtime_setting
+SET setting_value = 'true', updated_at = NOW()
+WHERE setting_key = 'BETA_TEST1_ENABLED';
+
+-- 無効化
+UPDATE m_runtime_setting
+SET setting_value = 'false', updated_at = NOW()
+WHERE setting_key = 'BETA_TEST1_ENABLED';
+```
+
+切り替えは再起動不要。最大5分（post-draw interval）で反映される。
+詳細は [`beta-test1.md`](beta-test1.md) を参照。
