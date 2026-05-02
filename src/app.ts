@@ -4,13 +4,15 @@ import type { MisskeyClient } from "./misskey/client.js";
 import { handleConsentReactions, handleFollowProbe, handleReplyProbe } from "./probe.js";
 import { loadRuntimeSettings, readIntegerSetting } from "./runtime-settings.js";
 import { runScheduledPostDraw } from "./scheduled-post.js";
+import { runExperienceScan } from "./experience-scan.js";
 
 type Clock = () => Date;
 
 export type BotApp = {
   pollOnce(): Promise<void>;
   drawPostOnce(): Promise<void>;
-  start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number }): () => void;
+  experienceScanOnce(): Promise<void>;
+  start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number; experienceScanIntervalMs?: number }): () => void;
 };
 
 export function createBotApp(options: {
@@ -82,9 +84,30 @@ export function createBotApp(options: {
     });
   }
 
-  function start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number }): () => void {
+  async function experienceScanOnce(): Promise<void> {
+    const at = now().toISOString();
+    await options.db.run("UPDATE bot_state SET updated_at = @at WHERE id = 1", { at });
+
+    if (!options.misskey) {
+      return;
+    }
+
+    const settings = await loadRuntimeSettings(options.db);
+    await runExperienceScan({
+      db: options.db,
+      client: options.misskey.client,
+      logger: options.logger,
+      settings,
+      chutesApiKey: process.env.CHUTES_API_KEY,
+      openaiApiKey: process.env.OPENAI_API_KEY,
+      at,
+    });
+  }
+
+  function start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number; experienceScanIntervalMs?: number }): () => void {
     let pollRunning = false;
     let postDrawRunning = false;
+    let experienceScanRunning = false;
 
     function runPoll(): void {
       if (pollRunning) {
@@ -118,6 +141,21 @@ export function createBotApp(options: {
         });
     }
 
+    function runExperienceScanWrapper(): void {
+      if (experienceScanRunning) {
+        options.logger.warn("experienceScan.skip", { reason: "already_running" });
+        return;
+      }
+      experienceScanRunning = true;
+      void experienceScanOnce()
+        .catch((error: unknown) => {
+          options.logger.error("experienceScan.error", { error: String(error) });
+        })
+        .finally(() => {
+          experienceScanRunning = false;
+        });
+    }
+
     runPoll();
 
     const pollTimer = setInterval(() => {
@@ -126,16 +164,22 @@ export function createBotApp(options: {
     const postDrawTimer = setInterval(() => {
       runPostDraw();
     }, intervals.postDrawIntervalMs);
+    const experienceScanIntervalMs = intervals.experienceScanIntervalMs ?? 600000; // デフォルト10分
+    const experienceScanTimer = setInterval(() => {
+      runExperienceScanWrapper();
+    }, experienceScanIntervalMs);
 
     return () => {
       clearInterval(pollTimer);
       clearInterval(postDrawTimer);
+      clearInterval(experienceScanTimer);
     };
   }
 
   return {
     pollOnce,
     drawPostOnce,
+    experienceScanOnce,
     start
   };
 }

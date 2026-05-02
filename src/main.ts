@@ -29,12 +29,14 @@ logger.info("bot.start", {
   misskeyHost: config.misskeyHost,
   adminAccount: config.adminAccount,
   pollIntervalMs: config.pollIntervalMs,
-  postDrawIntervalMs: config.postDrawIntervalMs
+  postDrawIntervalMs: config.postDrawIntervalMs,
+  experienceScanIntervalMs: config.experienceScanIntervalMs,
 });
 
 const stop = app.start({
   pollIntervalMs: config.pollIntervalMs,
-  postDrawIntervalMs: config.postDrawIntervalMs
+  postDrawIntervalMs: config.postDrawIntervalMs,
+  experienceScanIntervalMs: config.experienceScanIntervalMs,
 });
 
 function shutdown(signal: NodeJS.Signals): void {

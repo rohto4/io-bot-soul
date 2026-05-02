@@ -14,6 +14,7 @@ import type { ChatMessage } from "./chat-api.js";
 
 type PostRow = { text: string; posted_at: string; tier: "recent" | "mid" | "old"; kind: string };
 type TlNoteRow = { text_summary: string; note_created_at: string };
+type ExperienceLogRow = { occurred_at: string; summary: string; experience_type: string };
 
 const systemPrompt = buildCharacterSystemPrompt([
   "## 多様性ルール（必ず守ること）",
@@ -38,13 +39,18 @@ function formatPost(post: PostRow, maxLen: number): string {
 
 function buildUserMessage(options: {
   at: string;
-  top3: PostRow[];          // 多様性制約用（常に渡す）
-  tieredPosts: PostRow[];   // reminisce/reference用（normalでは空）
-  refPost?: PostRow;        // reference用（1件のみ）
+  top3: PostRow[];
+  tieredPosts: PostRow[];
+  refPost?: PostRow;
   tlNotes: TlNoteRow[];
   hint?: NoteHint;
+  tlSummaries?: string[];
+  tlMode?: "no_tl" | "vibe" | "mention";
+  dominantTopic?: string;
+  experienceLogs?: ExperienceLogRow[];
+  experienceWeight?: number;
 }): string {
-  const { at, top3, tieredPosts, refPost, tlNotes, hint } = options;
+  const { at, top3, tieredPosts, refPost, tlNotes, hint, tlSummaries, tlMode, dominantTopic, experienceLogs, experienceWeight = 50 } = options;
   const depth = hint?.memoryDepth ?? "normal";
   const jstHour = (new Date(at).getUTCHours() + 9) % 24;
   const lines: string[] = [`現在時刻: ${at}（JST目安 ${jstHour}時台）`];
@@ -77,8 +83,59 @@ function buildUserMessage(options: {
     lines.push(`「${refPost.text.replace(/\n/g, "｜").slice(0, 150)}」`);
   }
 
-  // TLノート参考（全depthで表示）
-  if (tlNotes.length > 0) {
+  // 体験メモリ（最近の記録）
+  if (experienceLogs && experienceLogs.length > 0 && experienceWeight > 0) {
+    lines.push("");
+    // 影響度に応じてセクション名を変化
+    if (experienceWeight >= 75) {
+      lines.push("## 最近の記録（かなめが体験したこと）");
+      for (const log of experienceLogs) {
+        lines.push(`- ${log.occurred_at.slice(0, 16)}: ${log.summary}`);
+      }
+      lines.push("これらを参考に、かなめとしてノートを書いてください。");
+    } else if (experienceWeight >= 50) {
+      lines.push("## 最近の記録（かなめが体験したこと）");
+      for (const log of experienceLogs) {
+        lines.push(`- ${log.occurred_at.slice(0, 16)}: ${log.summary}`);
+      }
+      lines.push("これらを無意識に参照して、かなめとしてノートを書いてください。");
+    } else {
+      lines.push("## 最近の記録");
+      for (const log of experienceLogs) {
+        lines.push(`- ${log.summary}`);
+      }
+    }
+  }
+
+  // TL参照（vibe/mentionモード）
+  if (tlMode && tlMode !== "no_tl" && tlSummaries && tlSummaries.length > 0) {
+    lines.push("");
+    if (tlMode === "vibe") {
+      lines.push("## 今のタイムラインの雰囲気");
+      lines.push("最近のタイムラインには、こんな流れがあった：");
+      for (const s of tlSummaries.slice(0, 5)) {
+        lines.push(`- ${s}`);
+      }
+      if (dominantTopic) {
+        lines.push("");
+        lines.push(`「${dominantTopic}」についての話題が多い気がする。`);
+        lines.push("この雰囲気をぼんやり感じ取って、かなめとしてノートを書いてください。特定の人を名指ししないでください。");
+      }
+    } else if (tlMode === "mention") {
+      lines.push("## 気になったこと");
+      lines.push("タイムラインでこんな話題を見かけた：");
+      for (const s of tlSummaries.slice(0, 3)) {
+        lines.push(`- ${s}`);
+      }
+      if (dominantTopic) {
+        lines.push("");
+        lines.push(`${dominantTopic}について、少し言及してみてください。特定の人を名指ししないでください。`);
+      }
+    }
+  }
+
+  // TLノート参考（全depthで表示、tlModeがない場合）
+  if ((!tlMode || tlMode === "no_tl") && tlNotes.length > 0) {
     lines.push("");
     lines.push("## 最近のタイムラインのノート（参考）");
     for (const note of tlNotes) {
@@ -116,6 +173,9 @@ export async function generatePostText(options: {
   openaiApiKey: string | undefined;
   logger: Logger;
   hint?: NoteHint;
+  tlSummaries?: string[];
+  tlMode?: "no_tl" | "vibe" | "mention";
+  dominantTopic?: string;
 }): Promise<string | null> {
   const { settings, db, at, logger } = options;
   const depth = options.hint?.memoryDepth ?? "normal";
@@ -150,15 +210,49 @@ export async function generatePostText(options: {
     }
   }
 
-  const tlNotes = await db.all<TlNoteRow>(
-    "SELECT text_summary, note_created_at FROM source_notes WHERE text_summary IS NOT NULL ORDER BY note_created_at DESC LIMIT 10"
-  );
+  // TLノート参照（no_tlの時のみ）
+  const tlNotes = (!options.tlMode || options.tlMode === "no_tl")
+    ? await db.all<TlNoteRow>(
+        "SELECT text_summary, note_created_at FROM source_notes WHERE text_summary IS NOT NULL ORDER BY note_created_at DESC LIMIT 10"
+      )
+    : [];
 
-  logger.info("generatePost.memoryDepth", { at, depth });
+  // 体験メモリ取得
+  let experienceLogs: ExperienceLogRow[] = [];
+  let experienceWeight = 0;
+  if (readBooleanSetting(settings, "EXPERIENCE_MEMORY_ENABLED", true)) {
+    const sampleCount = readIntegerSetting(settings, "EXPERIENCE_MEMORY_SAMPLE_COUNT", 50);
+    experienceWeight = readIntegerSetting(settings, "EXPERIENCE_MEMORY_PROMPT_WEIGHT", 50);
+    if (sampleCount > 0 && experienceWeight > 0) {
+      experienceLogs = await db.all<ExperienceLogRow>(
+        `SELECT occurred_at, summary, experience_type
+         FROM experience_logs
+         ORDER BY RANDOM() LIMIT ${sampleCount}`
+      );
+      logger.info("generatePost.experienceMemory", { at, sampleCount, logsCount: experienceLogs.length, weight: experienceWeight });
+    }
+  }
+
+  logger.info("generatePost.memoryDepth", { at, depth, tlMode: options.tlMode ?? "no_tl", experienceWeight });
 
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
-    { role: "user", content: buildUserMessage({ at, top3, tieredPosts, refPost, tlNotes, hint: options.hint }) },
+    {
+      role: "user",
+      content: buildUserMessage({
+        at,
+        top3,
+        tieredPosts,
+        refPost,
+        tlNotes,
+        hint: options.hint,
+        tlSummaries: options.tlSummaries,
+        tlMode: options.tlMode,
+        dominantTopic: options.dominantTopic,
+        experienceLogs,
+        experienceWeight,
+      }),
+    },
   ];
 
   return callAiWithFallback(

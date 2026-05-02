@@ -14,6 +14,7 @@ const envSchema = z.object({
   SQLITE_PATH: z.string().min(1).default("./data/bot.sqlite"),
   POLL_INTERVAL_SECONDS: z.coerce.number().int().min(1).default(60),
   POST_DRAW_INTERVAL_SECONDS: z.coerce.number().int().min(1).default(300),
+  EXPERIENCE_SCAN_INTERVAL_SECONDS: z.coerce.number().int().min(1).default(600),
   SCHEDULED_POSTING_ENABLED: z
     .string()
     .transform((value) => value.toLowerCase() === "true")
@@ -31,6 +32,7 @@ export type BotConfig = {
   sqlitePath: string;
   pollIntervalMs: number;
   postDrawIntervalMs: number;
+  experienceScanIntervalMs: number;
   scheduledPostingEnabled: boolean;
   logLevel: "debug" | "info" | "warn" | "error";
 };
@@ -48,6 +50,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BotConfig {
     sqlitePath: parsed.SQLITE_PATH,
     pollIntervalMs: parsed.POLL_INTERVAL_SECONDS * 1000,
     postDrawIntervalMs: parsed.POST_DRAW_INTERVAL_SECONDS * 1000,
+    experienceScanIntervalMs: parsed.EXPERIENCE_SCAN_INTERVAL_SECONDS * 1000,
     scheduledPostingEnabled: parsed.SCHEDULED_POSTING_ENABLED,
     logLevel: parsed.LOG_LEVEL
   };

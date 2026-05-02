@@ -10,31 +10,36 @@
 
 ## 基本方針
 
-- 初期DBはSQLiteを推奨する。
+- 初期DBはSQLiteを推奨する（テスト・開発用）。
 - ローカルPC常駐botから単一プロセスで使う。
-- 将来クラウド常駐や複数workerが必要になった場合はPostgreSQL系へ移行する。
+- 実運用ではNeon/Postgresを使用（`DATABASE_PROVIDER=postgres`）。
 - DBアクセス層は薄く分け、SQLite固定の書き方をbot全体に散らさない。
 
-## 疑似生活バッチ
+## 行動ガチャとデータフロー（実装済み）
 
-30分間隔を目安に、投稿処理とは別の候補収集バッチを走らせる。
+```
+5分ごとのpost-draw tick
+├── TL観測ガチャ（20% / beta-test1時80%）
+│   ├── 引用RNガチャ（20% / beta-test1時25%）
+│   │   ├── 許可済みユーザーのノート取得（quote-pick.ts）
+│   │   ├── AI安全判定（classify-quote-safety.ts）
+│   │   └── 引用RN投稿（quote_renote）→ experience_logs に記録
+│   └── TL観測テキスト生成 → tl_observation 投稿
+│
+└── 通常ノート抽選（80% / beta-test1時20%）
+    ├── 最短間隔チェック（5分）
+    ├── 経過時間に応じた確率テーブル
+    └── AI通常投稿生成 → normal 投稿
+```
 
-流れ:
+### データフローのポイント
 
-1. タイムラインから候補noteを取得する。
-2. ランダムまたは別途定める法則で元noteを選ぶ。
-3. 元noteを「体験候補」として抽象化する。
-4. `experience_candidates` に保存する。
-5. この時点では、まだキャラクターが実際に体験したこととして記憶しない。
+- `source_notes`: TLスキャン時に取得したノートの要約を保存（`tl-scan.ts`）
+- `posts`: 実際に投稿した内容を保存（kind: normal/tl_observation/quote_renote/reply）
+- `experience_logs`: 引用RN成功時に記録（source_note_id, source_user_id を保持）
+- `experience_candidates`: **未実装**（Phase 4で体験候補蓄積フローとして実装予定）
 
-5分ごとの投稿抽選で体験投稿が選ばれた時に、候補の中から実行する体験を選ぶ。
-
-1. `experience_candidates` から未使用候補を選ぶ。
-2. botが「今日はこれをした」とノートする。
-3. 投稿に成功した場合だけ、抽象的に体験済みとして `experience_logs` に保存する。
-4. `experience_candidates` は `executed` または `rejected` に更新する。
-
-## 保存する情報
+## 実装済みテーブル
 
 ### `tl_observations`
 
@@ -42,16 +47,19 @@ TLに「何かをしている人がいた」「こういう雰囲気があった
 
 これはキャラクター自身の体験ではない。投稿に使う場合も、個人名や元noteを特定できる情報を出さない。
 
-候補カラム:
+**実装状況**: Phase 3で基本実装済み。AI分類結果の詳細保存はPhase 4以降。
 
+カラム:
 - `id`
 - `observed_at`
 - `source_note_id`
 - `source_user_id`
+- `timeline`
 - `topic`
 - `summary`
 - `emotion`
 - `safety_class`
+- `status` ('pending', 'used', 'expired')
 - `used_in_post_id`
 - `created_at`
 
@@ -61,26 +69,28 @@ TLに「何かをしている人がいた」「こういう雰囲気があった
 
 重要: ここに入るのは「投稿済みの体験」だけ。候補段階のものは入れない。
 
-候補カラム:
+**実装状況**: Phase 3で引用RN記録として実装済み。
 
+カラム:
 - `id`
 - `occurred_at`
 - `source_note_id`
 - `source_user_id`
-- `experience_type`
+- `experience_candidate_id`（未使用、将来拡張用）
+- `experience_type`（'quote_renote' など）
 - `summary`
 - `emotion`
 - `importance`
-- `visibility`
-- `used_in_post_at`
+- `posted_note_id`
 - `created_at`
 
 ### `experience_candidates`
 
 タイムラインから拾った、将来体験に変換できる候補。
 
-候補カラム:
+**実装状況**: テーブル定義のみ。Phase 4で候補収集フローを実装予定。
 
+カラム:
 - `id`
 - `source_note_id`
 - `source_user_id`
@@ -91,34 +101,102 @@ TLに「何かをしている人がいた」「こういう雰囲気があった
 - `place_hint`
 - `action_hint`
 - `selection_reason`
-- `status`
+- `safety_class`
+- `quote_allowed`
+- `status` ('pending', 'executed', 'rejected', 'expired')
 - `rejected_reason`
 - `executed_post_id`
 - `executed_experience_log_id`
+- `expires_at`
+- `created_at`
 
 ### `source_notes`
 
 疑似体験の元にしたnoteの最小限メタデータ。
 
-候補カラム:
+**実装状況**: Phase 3で実装済み（`tl-scan.ts`）。
 
+カラム:
 - `note_id`
 - `user_id`
-- `created_at`
+- `username`
+- `host`
+- `note_created_at`
 - `visibility`
 - `cw`
-- `text_summary`
+- `sensitive`
+- `reply_id`
+- `renote_id`
 - `url`
+- `text_summary`（先頭80字程度）
 - `captured_at`
+- `deleted_or_unavailable`
 
-注意: 他者の投稿本文を丸ごと長期保存しない。必要なら短い要約や分類に留める。
+注意: 他者の投稿本文を丸ごと長期保存しない。短い要約に留める。
+
+### `posts`
+
+bot自身の投稿履歴。
+
+**実装状況**: Phase 3で実装済み。
+
+カラム:
+- `note_id`
+- `posted_at`
+- `kind` ('normal', 'tl_observation', 'quote_renote', 'reply', 'morning', 'night', 'sleep_talk', 'reaction_note')
+- `text`
+- `visibility`
+- `quote_source_note_id`
+- `source_experience_candidate_id`（未使用）
+- `source_experience_log_id`
+- `source_tl_observation_id`
+- `generated_reason`
+- `created_at`
+
+### `experience_source_consents`
+
+ユーザーが、自分の投稿をbotの疑似体験の参考にしてよいと許可した状態。
+
+**実装状況**: Phase 2で実装済み。
+
+同意の正本はピン留めノートへの❤リアクションとする。
+
+カラム:
+- `user_id`
+- `username`
+- `host`
+- `consent_status` ('pending', 'consented', 'stopped', 'unfollowed', 'revoked')
+- `pinned_consent_note_id`
+- `consented_reaction`
+- `consented_at`
+- `revoked_at`
+- `stopped_at`
+- `unfollowed_at`
+- `last_checked_at`
+- `created_at`
+- `updated_at`
+
+### `consent_guides`
+
+フォロー時に送った、ピン留めノートへの案内記録。
+
+**実装状況**: Phase 2で実装済み（旧名`consent_requests`から変更）。
+
+カラム:
+- `id`
+- `user_id`
+- `guide_note_id`
+- `pinned_consent_note_id`
+- `requested_at`
+- `status`
 
 ### `notes_seen`
 
 取得済み・処理済みnote。
 
-候補カラム:
+**実装状況**: 実装済み。
 
+カラム:
 - `note_id`
 - `seen_at`
 - `purpose`
@@ -127,44 +205,73 @@ TLに「何かをしている人がいた」「こういう雰囲気があった
 
 処理済みnotification。
 
-候補カラム:
+**実装状況**: 実装済み。
 
+カラム:
 - `notification_id`
+- `notification_type`
+- `user_id`
+- `note_id`
 - `seen_at`
 - `handled_at`
 - `action`
-
-### `posts`
-
-bot自身の投稿履歴。
-
-候補カラム:
-
-- `note_id`
-- `posted_at`
-- `kind`
-- `text`
-- `source_experience_log_id`
-- `visibility`
 
 ### `reply_logs`
 
 bot自身の返信履歴。
 
-候補カラム:
+**実装状況**: 実装済み。
 
+カラム:
 - `id`
 - `target_note_id`
+- `target_user_id`
 - `reply_note_id`
 - `replied_at`
 - `reason`
+- `status`
 
-### `memory_atoms`
+### `bot_state`
+
+単一のbot状態。
+
+**実装状況**: 実装済み。
+
+カラム:
+- `id`（常に1）
+- `sleeping`
+- `current_rhythm_date`
+- `wake_at`
+- `sleep_at`
+- `last_note_at`
+- `last_timeline_scan_at`
+- `created_at`
+- `updated_at`
+
+### `rate_limit_events`
+
+投稿や引用RNのskip理由を残す。
+
+**実装状況**: 実装済み。
+
+カラム:
+- `id`
+- `event_at`
+- `event_type`
+- `decision`
+- `reason`
+- `related_user_id`
+- `related_note_id`
+
+## Phase 4以降の検討テーブル
+
+以下は将来的な拡張候補として定義しているが、現時点では未実装。
+
+### `memory_atoms`（未実装）
 
 継続的に参照する短い記憶単位。
 
-候補カラム:
-
+カラム:
 - `id`
 - `kind`
 - `content`
@@ -172,51 +279,15 @@ bot自身の返信履歴。
 - `created_at`
 - `last_used_at`
 
-### `experience_source_consents`
-
-ユーザーが、自分の投稿をbotの疑似体験の参考にしてよいと許可した状態。
-
-同意の正本はピン留めノートへの❤リアクションとする。
-
-候補カラム:
-
-- `user_id`
-- `username`
-- `host`
-- `consent_status`
-- `request_note_id`
-- `pinned_consent_note_id`
-- `consented_reaction`
-- `consented_at`
-- `revoked_at`
-- `stopped_at`
-- `unfollowed_at`
-- `last_checked_at`
-
-### `consent_requests`
-
-フォロー時に送った、ピン留めノートへの案内記録。
-
-候補カラム:
-
-- `id`
-- `user_id`
-- `username`
-- `guide_note_id`
-- `pinned_consent_note_id`
-- `requested_at`
-- `status`
-
-### `note_exp_history`
+### `note_exp_history`（未実装）
 
 自分のノート、ノートの元になった体験、ノートしていない体験を同じ系列で扱うための統合履歴案。
 
 既存の `tl_observations`、`experience_candidates`、`experience_logs` と統合するかは未決。
 
-候補カラム:
-
+カラム:
 - `id`
-- `kind`
+- `kind` ('note', 'note-exp', 'exp')
 - `note_id`
 - `source_note_id`
 - `source_user_id`
@@ -226,18 +297,13 @@ bot自身の返信履歴。
 - `created_at`
 - `posted_at`
 
-`kind` 候補:
-
-- `note`: 自分がノートした内容。
-- `note-exp`: ノート内容の元になった体験。
-- `exp`: ノートしていない体験。
-
-### `experience_sources`
+### `experience_sources`（未実装）
 
 疑似体験の元候補として抽出したnoteと、その採用判断。
 
-候補カラム:
+注: `experience_candidates` を主テーブルにする場合、`experience_sources` は統合または省略してよい。
 
+カラム:
 - `id`
 - `note_id`
 - `user_id`
@@ -245,8 +311,6 @@ bot自身の返信履歴。
 - `selection_reason`
 - `rejected_reason`
 - `experience_log_id`
-
-注: `experience_candidates` を主テーブルにする場合、`experience_sources` は統合または省略してよい。
 
 ## 安全方針
 

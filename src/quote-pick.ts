@@ -58,17 +58,28 @@ export async function pickQuoteCandidate(options: {
 
     const oneWeekAgo = new Date(new Date(options.at).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // 構造フィルタ: CW・リプライ・リノート・非公開・1週間超を除外
+    // 構造フィルタ: CW・リプライ・リノート・非公開・1週間超・30文字未満を除外
     const structurallyValid = notes.filter(
       (n) =>
         n.text &&
-        n.text.trim().length > 0 &&
+        n.text.trim().length >= 30 &&
         !n.cw &&
         !n.replyId &&
         !n.renoteId &&
         (n.visibility === "public" || n.visibility === "home") &&
         n.createdAt >= oneWeekAgo
     );
+
+    const shortNotesCount = notes.filter((n) => n.text && n.text.trim().length > 0 && n.text.trim().length < 30).length;
+    if (shortNotesCount > 0) {
+      options.logger.debug("quotePick.skip", {
+        at: options.at,
+        userId: user.user_id,
+        reason: "too_short_notes",
+        shortNotesCount,
+        minLength: 30
+      });
+    }
 
     if (structurallyValid.length === 0) continue;
 

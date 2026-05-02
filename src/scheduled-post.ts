@@ -3,7 +3,6 @@ import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
 import type { RuntimeSettings } from "./runtime-settings.js";
 import { generatePostText } from "./ai/generate-post.js";
-import { generateTlPostText } from "./ai/generate-tl-post.js";
 import { generateQuotePostText } from "./ai/generate-quote-post.js";
 import {
   loadRuntimeSettings,
@@ -11,7 +10,7 @@ import {
   readIntegerSetting,
   readNumberSetting,
 } from "./runtime-settings.js";
-import { runTlScan } from "./tl-scan.js";
+import { runTlScanPassive, analyzeTlVibe } from "./tl-scan.js";
 import { pickQuoteCandidate } from "./quote-pick.js";
 import type { QuoteCandidate } from "./quote-pick.js";
 import { drawNoteHint } from "./note-hint.js";
@@ -27,8 +26,7 @@ export type ScheduledPostDrawOptions = {
   enabled: boolean;
   random?: () => number;
   // テスト用モック差し込み口
-  generateText?: () => Promise<string | null>;
-  generateTlText?: (summaries: string[]) => Promise<string | null>;
+  generateText?: (opts: { tlMode?: "no_tl" | "vibe" | "mention"; tlSummaries?: string[]; dominantTopic?: string; hint?: NoteHint }) => Promise<string | null>;
   generateQuoteText?: (noteText: string) => Promise<string | null>;
   pickQuote?: () => Promise<QuoteCandidate | null>;
 };
@@ -92,8 +90,9 @@ export function calculateScheduledPostProbability(input: {
 // ─── Phase 1: ガチャ ──────────────────────────────────────────────────
 
 type DrawSkip = { tag: "skip"; reason: string; meta?: Record<string, unknown> };
-type DrawAction = { tag: "quote_rn" } | { tag: "tl_obs" } | { tag: "normal"; hint: NoteHint };
-type DrawResult = DrawSkip | DrawAction;
+type DrawQuoteRn = { tag: "quote_rn" };
+type DrawNormal = { tag: "normal"; hint: NoteHint; tlMode: "no_tl" | "vibe" | "mention"; summaries?: string[]; dominantTopic?: string };
+type DrawResult = DrawSkip | DrawQuoteRn | DrawNormal;
 
 function drawAction(
   settings: RuntimeSettings,
@@ -103,18 +102,16 @@ function drawAction(
 ): DrawResult {
   const beta = readBooleanSetting(settings, "BETA_TEST1_ENABLED", false);
 
-  // beta-test1: TL観測80%・引用RN25%（overall 20%）・経過時間5倍
-  const tlObsProb   = beta ? 0.80 : readNumberSetting(settings, "TL_OBSERVATION_POST_PROBABILITY", 0.20);
-  const quoteRnProb = beta ? 0.25 : readNumberSetting(settings, "QUOTE_RENOTE_PROBABILITY",        0.20);
-  const elapsedMult = beta ? 5.0  : 1.0;
+  // 引用RN確率
+  const quoteRnProb = beta ? 0.40 : readNumberSetting(settings, "QUOTE_RENOTE_PROBABILITY", 0.20);
 
-  // TL 観測ガチャ
-  if (rand() < tlObsProb) {
-    if (rand() < quoteRnProb) return { tag: "quote_rn" };
-    return { tag: "tl_obs" };
+  // 独立ガチャ: 引用RN
+  if (rand() < quoteRnProb) {
+    return { tag: "quote_rn" };
   }
 
   // 通常ノート: 最短間隔 + 確率テーブル
+  const elapsedMult = beta ? 5.0 : 1.0;
   if (latestNormal) {
     const minInterval = readIntegerSetting(settings, "SCHEDULED_POST_MIN_INTERVAL_MINUTES", 5);
     const elapsedMs = new Date(at).getTime() - new Date(latestNormal.posted_at).getTime();
@@ -138,30 +135,71 @@ function drawAction(
     }
   }
 
-  return { tag: "normal", hint: drawNoteHint(rand) };
+  // 通常ノートのTL参照判定
+  const tlRefProb = readNumberSetting(settings, "TL_REFERENCE_PROBABILITY", 0.50);
+  const hint = drawNoteHint(rand);
+
+  if (rand() < tlRefProb) {
+    // TL参照当選 → 雰囲気/特定抽選
+    const vibeRatio = readNumberSetting(settings, "TL_VIBE_RATIO", 0.75);
+    const tlMode: "vibe" | "mention" = rand() < vibeRatio ? "vibe" : "mention";
+    return { tag: "normal", hint, tlMode };
+  }
+
+  return { tag: "normal", hint, tlMode: "no_tl" };
 }
 
 // ─── Phase 2: 取得 ────────────────────────────────────────────────────
 
 type FetchSkip = { tag: "skip"; reason: string };
 type FetchQuoteRn = { tag: "quote_rn"; candidate: QuoteCandidate; summaries: string[] };
-type FetchTlObs = { tag: "tl_obs"; summaries: string[] };
-type FetchNormal = { tag: "normal"; hint: NoteHint };
-type FetchResult = FetchSkip | FetchQuoteRn | FetchTlObs | FetchNormal;
+type FetchNormal = { tag: "normal"; hint: NoteHint; tlMode: "no_tl" | "vibe" | "mention"; summaries: string[]; dominantTopic?: string };
+type FetchResult = FetchSkip | FetchQuoteRn | FetchNormal;
 
 async function fetchData(
-  draw: DrawAction,
+  draw: DrawQuoteRn | DrawNormal,
   settings: RuntimeSettings,
   options: ScheduledPostDrawOptions,
   rand: () => number
 ): Promise<FetchResult> {
-  if (draw.tag === "normal") return { tag: "normal", hint: draw.hint };
+  if (draw.tag === "normal") {
+    if (draw.tlMode === "no_tl") {
+      return { tag: "normal", hint: draw.hint, tlMode: "no_tl", summaries: [] };
+    }
 
-  // TL スキャン（quote_rn / tl_obs 共通）
+    // TL参照モード: TLスキャン + 傾向分析
+    const tlLimit = readIntegerSetting(settings, "TL_OBSERVATION_NOTE_COUNT", 20);
+    const minSummaries = readIntegerSetting(settings, "TL_OBSERVATION_MIN_POSTS", 3);
+
+    const { summaries } = await runTlScanPassive({
+      db: options.db,
+      client: options.client,
+      logger: options.logger,
+      at: options.at,
+      limit: tlLimit,
+    });
+
+    if (summaries.length < minSummaries) {
+      // TL参照に必要なsummariesが足りない → no_tl にフォールバック
+      options.logger.info("scheduledPost.tlFallback", { at: options.at, reason: "too_few_summaries", tlMode: draw.tlMode });
+      return { tag: "normal", hint: draw.hint, tlMode: "no_tl", summaries: [] };
+    }
+
+    const { hasVibe, dominantTopic } = analyzeTlVibe(summaries);
+
+    if (!hasVibe && draw.tlMode === "vibe") {
+      // 雰囲気がない → no_tl にフォールバック
+      options.logger.info("scheduledPost.tlFallback", { at: options.at, reason: "no_dominant_vibe", tlMode: draw.tlMode });
+      return { tag: "normal", hint: draw.hint, tlMode: "no_tl", summaries: [] };
+    }
+
+    return { tag: "normal", hint: draw.hint, tlMode: draw.tlMode, summaries, dominantTopic };
+  }
+
+  // quote_rn: 引用候補を取得
   const tlLimit = readIntegerSetting(settings, "TL_OBSERVATION_NOTE_COUNT", 20);
-  const minSummaries = readIntegerSetting(settings, "TL_OBSERVATION_MIN_POSTS", 3);
 
-  const { summaries } = await runTlScan({
+  const { summaries } = await runTlScanPassive({
     db: options.db,
     client: options.client,
     logger: options.logger,
@@ -169,13 +207,6 @@ async function fetchData(
     limit: tlLimit,
   });
 
-  if (summaries.length < minSummaries) {
-    return { tag: "skip", reason: "too_few_summaries" };
-  }
-
-  if (draw.tag === "tl_obs") return { tag: "tl_obs", summaries };
-
-  // quote_rn: 引用候補を取得
   const quoteFn =
     options.pickQuote ??
     (() =>
@@ -194,48 +225,15 @@ async function fetchData(
 
   if (candidate) return { tag: "quote_rn", candidate, summaries };
 
-  // 候補なし → summaries はあるので tl_obs テキストにフォールバック
-  options.logger.info("quoteRenote.skip", { at: options.at, reason: "no_candidate_fallback_tl_obs" });
-  return { tag: "tl_obs", summaries };
+  // 候補なし → skip（通常ノートへは落ちない）
+  options.logger.info("quoteRenote.skip", { at: options.at, reason: "no_candidate" });
+  return { tag: "skip", reason: "no_quote_candidate" };
 }
 
 // ─── Phase 3: AI生成・投稿 ────────────────────────────────────────────
 
-async function postTlObservation(
-  summaries: string[],
-  settings: RuntimeSettings,
-  options: ScheduledPostDrawOptions
-): Promise<void> {
-  const tlGenerateFn =
-    options.generateTlText ??
-    ((s: string[]) =>
-      generateTlPostText({
-        settings,
-        summaries: s,
-        at: options.at,
-        chutesApiKey: process.env.CHUTES_API_KEY,
-        openaiApiKey: process.env.OPENAI_API_KEY,
-        logger: options.logger,
-      }));
-
-  const tlText = await tlGenerateFn(summaries);
-  if (!tlText) {
-    options.logger.info("tlObservation.skip", { at: options.at, reason: "ai_failure" });
-    return; // 通常ノートへは落ちない
-  }
-
-  const visibility = "public";
-  const note = await options.client.createNote({ text: tlText, visibility });
-  await options.db.run(
-    `INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
-     VALUES (@noteId, @postedAt, 'tl_observation', @text, @visibility, 'tl_observation_v0', @createdAt)`,
-    { noteId: note.id, postedAt: options.at, text: tlText, visibility, createdAt: options.at }
-  );
-  options.logger.info("tlObservation.posted", { at: options.at, noteId: note.id });
-}
-
 async function generateAndPost(
-  fetch: FetchQuoteRn | FetchTlObs | FetchNormal,
+  fetch: FetchQuoteRn | FetchNormal,
   settings: RuntimeSettings,
   options: ScheduledPostDrawOptions
 ): Promise<void> {
@@ -260,7 +258,7 @@ async function generateAndPost(
       const note = await options.client.createNote({ text: quoteText, renoteId: fetch.candidate.noteId, visibility });
       await options.db.run(
         `INSERT INTO posts (note_id, posted_at, kind, text, visibility, quote_source_note_id, generated_reason, created_at)
-         VALUES (@noteId, @postedAt, 'quote_renote', @text, @visibility, @sourceNoteId, 'quote_renote_v0', @createdAt)`,
+         VALUES (@noteId, @postedAt, 'quote_renote', @text, @visibility, @sourceNoteId, 'quote_renote', @createdAt)`,
         { noteId: note.id, postedAt: options.at, text: quoteText, visibility, sourceNoteId: fetch.candidate.noteId, createdAt: options.at }
       );
       options.logger.info("quoteRenote.posted", { at: options.at, noteId: note.id, sourceNoteId: fetch.candidate.noteId });
@@ -283,22 +281,15 @@ async function generateAndPost(
       return;
     }
 
-    // AI 失敗 → TL 観測テキストにフォールバック（通常ノートへは落ちない）
-    options.logger.info("quoteRenote.skip", { at: options.at, reason: "ai_failure_fallback_tl_obs" });
-    await postTlObservation(fetch.summaries, settings, options);
-    return;
-  }
-
-  // ── tl_obs ──
-  if (fetch.tag === "tl_obs") {
-    await postTlObservation(fetch.summaries, settings, options);
+    // AI 失敗 → skip（通常ノートへは落ちない）
+    options.logger.info("quoteRenote.skip", { at: options.at, reason: "ai_failure" });
     return;
   }
 
   // ── normal ──
   const generateFn =
     options.generateText ??
-    (() =>
+    ((opts: { tlMode?: "no_tl" | "vibe" | "mention"; tlSummaries?: string[]; dominantTopic?: string; hint?: NoteHint }) =>
       generatePostText({
         settings,
         db: options.db,
@@ -306,25 +297,36 @@ async function generateAndPost(
         chutesApiKey: process.env.CHUTES_API_KEY,
         openaiApiKey: process.env.OPENAI_API_KEY,
         logger: options.logger,
-        hint: fetch.hint,
+        hint: opts.hint ?? fetch.hint,
+        tlSummaries: opts.tlSummaries ?? fetch.summaries,
+        tlMode: opts.tlMode ?? fetch.tlMode,
+        dominantTopic: opts.dominantTopic ?? fetch.dominantTopic,
       }));
 
-  const aiText = await generateFn();
+  const aiText = await generateFn({
+    tlMode: fetch.tlMode,
+    tlSummaries: fetch.summaries,
+    dominantTopic: fetch.dominantTopic,
+    hint: fetch.hint,
+  });
+
   if (aiText === null && readBooleanSetting(settings, "AI_SKIP_POST_ON_AI_FAILURE", true)) {
-    options.logger.info("scheduledPost.skip", { at: options.at, reason: "ai_failure" });
+    options.logger.info("scheduledPost.skip", { at: options.at, reason: "ai_failure", tlMode: fetch.tlMode });
     return;
   }
 
   const text = aiText ?? buildScheduledPostText(options.random);
   const visibility = "public";
   const note = await options.client.createNote({ text, visibility });
+
+  const generatedReason = fetch.tlMode === "no_tl" ? "no_tl" : fetch.tlMode === "vibe" ? "tl_vibe" : "tl_mention";
   await options.db.run(
     `INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
-     VALUES (@noteId, @postedAt, 'normal', @text, @visibility, 'scheduled_post_draw_v0', @createdAt)`,
-    { noteId: note.id, postedAt: options.at, text, visibility, createdAt: options.at }
+     VALUES (@noteId, @postedAt, 'normal', @text, @visibility, @generatedReason, @createdAt)`,
+    { noteId: note.id, postedAt: options.at, text, visibility, generatedReason, createdAt: options.at }
   );
   await options.db.run("UPDATE bot_state SET last_note_at = @at, updated_at = @at WHERE id = 1", { at: options.at });
-  options.logger.info("scheduledPost.posted", { at: options.at, noteId: note.id, visibility });
+  options.logger.info("scheduledPost.posted", { at: options.at, noteId: note.id, tlMode: fetch.tlMode, visibility });
 }
 
 // ─── メインエントリ ───────────────────────────────────────────────────
@@ -353,9 +355,9 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
 
   const betaEnabled = readBooleanSetting(settings, "BETA_TEST1_ENABLED", false);
   if (betaEnabled) {
-    options.logger.info("betaTest1.active", { at: options.at, tlObsProb: 0.80, quoteRnProb: 0.25, elapsedMult: 5.0 });
+    options.logger.info("betaTest1.active", { at: options.at, quoteRnProb: 0.40, elapsedMult: 5.0 });
   }
-  options.logger.info("scheduledPost.action", { at: options.at, action: draw.tag });
+  options.logger.info("scheduledPost.action", { at: options.at, action: draw.tag, tlMode: draw.tag === "normal" ? draw.tlMode : undefined });
 
   // ===== Phase 2: 取得 =====
   const fetch = await fetchData(draw, settings, options, rand);
