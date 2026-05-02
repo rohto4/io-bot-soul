@@ -72,8 +72,14 @@ export async function pickQuoteCandidate(options: {
 
     if (structurallyValid.length === 0) continue;
 
-    // ランダムに並び替えて安全判定を通った最初の1件を返す
-    const shuffled = [...structurallyValid].sort(() => rand() - 0.5);
+    // 今日（直近24時間）のノートを優先し、その中でランダム → 古いノートはその後
+    const oneDayAgo = new Date(new Date(options.at).getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const todayNotes = structurallyValid.filter((n) => n.createdAt >= oneDayAgo);
+    const olderNotes = structurallyValid.filter((n) => n.createdAt < oneDayAgo);
+    const shuffled = [
+      ...[...todayNotes].sort(() => rand() - 0.5),
+      ...[...olderNotes].sort(() => rand() - 0.5),
+    ];
     for (const note of shuffled) {
       const safe = await classifyFn(note.text!);
       if (safe) {
