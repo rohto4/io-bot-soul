@@ -92,6 +92,15 @@ function buildUserMessage(options: {
     lines.push("## 今回のノートのヒント（お題の種・口調の向き）");
     lines.push(`お題の種: ${hint.topic}`);
     lines.push(`口調の向き: ${hint.tone}`);
+    if (hint.style) {
+      lines.push("");
+      lines.push(`## 文体・構成パターン: ${hint.style.name}`);
+      lines.push(hint.style.description);
+      lines.push("");
+      lines.push("構成の参考例（内容はお題に合わせて変えること）:");
+      lines.push(hint.style.example);
+    }
+    lines.push("");
     lines.push("これをヒントにかなめとしてノートを1つ書いてください。ヒントをそのまま言葉にするのではなく、自然に織り込んでください。");
   } else {
     lines.push("");

@@ -1,9 +1,16 @@
 export type MemoryDepth = "normal" | "reminisce" | "reference";
 
+export type NoteStyle = {
+  name: string;
+  description: string;
+  example: string;
+};
+
 export type NoteHint = {
   topic: string;
   tone: string;
   memoryDepth: MemoryDepth;
+  style?: NoteStyle;  // normal depthのときのみ設定
 };
 
 const topics = [
@@ -42,6 +49,37 @@ const tones = [
   "懐っこさ・連帯感（「〜だよね」、フォロワーへの親しみ）",
 ] as const;
 
+// 4つの文体・構成パターン（normal depthのときにランダムに1つ選ぶ）
+const noteStyles: NoteStyle[] = [
+  {
+    name: "短文観察",
+    description: "観察や気づきを1〜2行で切り取り、感想を1行で添える。全体2〜3行の短め構成。",
+    example:
+      "窓の外、まだ少し暗い。\n光がくる前の静けさって、ちょっと好きかもしれない。",
+  },
+  {
+    name: "思考の連鎖",
+    description:
+      "ひとつの気づきが次の思考を呼ぶ展開。脱線・寄り道を含む3〜5行。最後は「まあいいや」「悪くない」など軽い着地。",
+    example:
+      "気になったことを調べ始めたら、\n全然別の話に着地してしまった。\nこういう脱線、なぜか止められない。\nまあいいや、全部面白いので。",
+  },
+  {
+    name: "考察・断言型",
+    description:
+      "前提を置いて論理を展開し、結論または仮説で締める。「つまり〜」「要するに〜」を使ってもよい。3〜4行。",
+    example:
+      "カップ麺の待ち時間って、3分ってちょうどいい。\n考えがまとまるには短すぎて、冷めるには長い。\nつまり「中断できない思考」の最小単位が3分なのでは。",
+  },
+  {
+    name: "生活感・行動報告",
+    description:
+      "今やっていることや体験した出来事を具体的に描写し、感情や意図で締める。「私えらいので〜」など自己肯定を使ってもよい。3〜4行。",
+    example:
+      "図書館に来てから2時間、全然別の棚に移動してた。\n今日は資料探しじゃなくて、完全に散策になってる。\n私えらいので、これも「調査」として記録しておく。",
+  },
+];
+
 function drawMemoryDepth(rand: () => number): MemoryDepth {
   const r = rand();
   if (r < 0.05) return "reference";  // 5%: 過去の1件に言及
@@ -50,9 +88,14 @@ function drawMemoryDepth(rand: () => number): MemoryDepth {
 }
 
 export function drawNoteHint(random: () => number = Math.random): NoteHint {
+  const memoryDepth = drawMemoryDepth(random);
   return {
     topic: topics[Math.floor(random() * topics.length)],
     tone: tones[Math.floor(random() * tones.length)],
-    memoryDepth: drawMemoryDepth(random),
+    memoryDepth,
+    // normal depthのときのみ文体パターンを設定
+    style: memoryDepth === "normal"
+      ? noteStyles[Math.floor(random() * noteStyles.length)]
+      : undefined,
   };
 }
