@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(git stash *)",
+      "Bash(git restore *)",
+      "Bash(git reset *)",
+      "Bash(git merge *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(git tag *)",
+      "Bash(git rm *)",
+      "Bash(npm test *)",
+      "Bash(npm test)",
+      "Bash(npm run build)",
+      "Bash(npm run build *)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint *)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run typecheck *)",
+      "Bash(npm install)",
+      "Bash(npm install *)",
+      "Bash(npm ci)",
+      "Bash(docker compose up *)",
+      "Bash(docker compose down *)",
+      "Bash(docker compose build *)",
+      "Bash(docker compose restart *)",
+      "Bash(docker compose stop *)",
+      "Bash(docker compose start *)",
+      "Bash(docker compose exec *)",
+      "Bash(docker compose logs *)",
+      "Bash(docker compose run *)"
+    ]
+  }
+}
