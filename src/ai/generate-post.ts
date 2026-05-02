@@ -36,12 +36,21 @@ function formatPost(post: PostRow, maxLen: number): string {
   return `${date}: ${label}${text}`;
 }
 
-function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[], hint?: NoteHint): string {
+function buildUserMessage(options: {
+  at: string;
+  top3: PostRow[];          // 多様性制約用（常に渡す）
+  tieredPosts: PostRow[];   // reminisce/reference用（normalでは空）
+  refPost?: PostRow;        // reference用（1件のみ）
+  tlNotes: TlNoteRow[];
+  hint?: NoteHint;
+}): string {
+  const { at, top3, tieredPosts, refPost, tlNotes, hint } = options;
+  const depth = hint?.memoryDepth ?? "normal";
   const jstHour = (new Date(at).getUTCHours() + 9) % 24;
   const lines: string[] = [`現在時刻: ${at}（JST目安 ${jstHour}時台）`];
 
-  if (pastPosts.length > 0) {
-    const top3 = [...pastPosts].slice(-3).reverse();
+  // 常に: 直前パターンで多様性制約
+  if (top3.length > 0) {
     lines.push("");
     lines.push("## 直前の投稿パターン（これと被らない書き出し・締め方にすること）");
     for (const post of top3) {
@@ -49,32 +58,40 @@ function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]
       const lastLine = post.text.split("\n").filter(Boolean).at(-1) ?? "";
       lines.push(`- 書き出し:「${firstLine.slice(0, 30)}」 / 締め:「${lastLine.slice(0, 30)}」`);
     }
+  }
 
-    const recentPosts = pastPosts.filter((p) => p.tier === "recent");
-    const midPosts = pastPosts.filter((p) => p.tier === "mid");
-    const oldPosts = pastPosts.filter((p) => p.tier === "old");
-
+  // reminisce: 蓄積を参考に連想
+  if (depth === "reminisce" && tieredPosts.length > 0) {
+    const recentPosts = tieredPosts.filter((p) => p.tier === "recent");
+    const midPosts    = tieredPosts.filter((p) => p.tier === "mid");
+    const oldPosts    = tieredPosts.filter((p) => p.tier === "old");
     lines.push("");
-    lines.push("## これまでの投稿文脈");
-    lines.push("以下はあなた自身の過去の投稿です。この蓄積と流れを踏まえた上でノートを生成してください。");
-
+    lines.push("## 過去の投稿からの連想（直接引用・繰り返しはしないこと）");
+    lines.push("以下の過去の投稿をきっかけに、何か連想・発展させたことをノートしてください。");
     if (recentPosts.length > 0) {
-      lines.push("");
-      lines.push("### 最近の記憶（直近1週間）");
+      lines.push(""); lines.push("### 最近の記憶（直近1週間）");
       for (const post of recentPosts) lines.push(formatPost(post, 100));
     }
     if (midPosts.length > 0) {
-      lines.push("");
-      lines.push("### 少し前の記憶（1週間〜1ヶ月）");
+      lines.push(""); lines.push("### 少し前の記憶");
       for (const post of midPosts) lines.push(formatPost(post, 80));
     }
     if (oldPosts.length > 0) {
-      lines.push("");
-      lines.push("### 断片的な記憶（1〜2ヶ月前）");
+      lines.push(""); lines.push("### 断片的な記憶");
       for (const post of oldPosts) lines.push(formatPost(post, 60));
     }
   }
 
+  // reference: 特定の1件に言及
+  if (depth === "reference" && refPost) {
+    lines.push("");
+    lines.push("## 過去の自分のノートへの言及");
+    lines.push("以下はあなたが以前書いたノートです。このノートを踏まえた反応・続き・補足をノートしてください。");
+    lines.push(`（${refPost.posted_at.slice(0, 16)} / ${kindLabel[refPost.kind] ?? ""}）`);
+    lines.push(`「${refPost.text.replace(/\n/g, "｜").slice(0, 150)}」`);
+  }
+
+  // TLノート参考（全depthで表示）
   if (tlNotes.length > 0) {
     lines.push("");
     lines.push("## 最近のタイムラインのノート（参考）");
@@ -83,6 +100,7 @@ function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[]
     }
   }
 
+  // ヒント
   if (hint) {
     lines.push("");
     lines.push("## 今回のノートのヒント（お題の種・口調の向き）");
@@ -106,57 +124,78 @@ export async function generatePostText(options: {
   hint?: NoteHint;
 }): Promise<string | null> {
   const { settings, db, at, logger } = options;
+  const depth = options.hint?.memoryDepth ?? "normal";
 
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  const nowMs = new Date(at).getTime();
-  const recentStart = new Date(nowMs - 7 * DAY_MS).toISOString();
-  const midStart = new Date(nowMs - 30 * DAY_MS).toISOString();
-  const oldStart = new Date(nowMs - 60 * DAY_MS).toISOString();
-
-  // normal / tl_observation / quote_renote をすべて記憶に含める
-  const pastPosts = await db.all<PostRow>(
-    `WITH
-     recent AS (
-       SELECT text, posted_at, 'recent' AS tier, kind
-       FROM posts
-       WHERE kind IN ('normal','tl_observation','quote_renote') AND posted_at >= @recent_start
-       ORDER BY posted_at DESC LIMIT 20
-     ),
-     mid_n AS (
-       SELECT text, posted_at, kind,
-              ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
-       FROM posts
-       WHERE kind IN ('normal','tl_observation','quote_renote')
-         AND posted_at >= @mid_start AND posted_at < @recent_start
-     ),
-     mid AS (
-       SELECT text, posted_at, 'mid' AS tier, kind FROM mid_n
-       WHERE (rn - 1) % 3 = 0 LIMIT 10
-     ),
-     old_n AS (
-       SELECT text, posted_at, kind,
-              ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
-       FROM posts
-       WHERE kind IN ('normal','tl_observation','quote_renote')
-         AND posted_at >= @old_start AND posted_at < @mid_start
-     ),
-     old AS (
-       SELECT text, posted_at, 'old' AS tier, kind FROM old_n
-       WHERE (rn - 1) % 10 = 0 LIMIT 5
-     )
-     SELECT text, posted_at, tier, kind FROM recent
-     UNION ALL SELECT text, posted_at, tier, kind FROM mid
-     UNION ALL SELECT text, posted_at, tier, kind FROM old
-     ORDER BY posted_at ASC`,
-    { recent_start: recentStart, mid_start: midStart, old_start: oldStart }
+  // 常に: 多様性制約用の直近3件
+  const top3 = await db.all<PostRow>(
+    `SELECT text, posted_at, kind, 'recent' AS tier
+     FROM posts
+     WHERE kind IN ('normal','tl_observation','quote_renote')
+     ORDER BY posted_at DESC LIMIT 3`
   );
+
+  // reminisce / reference のみ: tiered 記憶を取得
+  let tieredPosts: PostRow[] = [];
+  let refPost: PostRow | undefined;
+
+  if (depth !== "normal") {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const nowMs = new Date(at).getTime();
+    const recentStart = new Date(nowMs - 7 * DAY_MS).toISOString();
+    const midStart    = new Date(nowMs - 30 * DAY_MS).toISOString();
+    const oldStart    = new Date(nowMs - 60 * DAY_MS).toISOString();
+
+    tieredPosts = await db.all<PostRow>(
+      `WITH
+       recent AS (
+         SELECT text, posted_at, 'recent' AS tier, kind
+         FROM posts
+         WHERE kind IN ('normal','tl_observation','quote_renote') AND posted_at >= @recent_start
+         ORDER BY posted_at DESC LIMIT 20
+       ),
+       mid_n AS (
+         SELECT text, posted_at, kind,
+                ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
+         FROM posts
+         WHERE kind IN ('normal','tl_observation','quote_renote')
+           AND posted_at >= @mid_start AND posted_at < @recent_start
+       ),
+       mid AS (
+         SELECT text, posted_at, 'mid' AS tier, kind FROM mid_n
+         WHERE (rn - 1) % 3 = 0 LIMIT 10
+       ),
+       old_n AS (
+         SELECT text, posted_at, kind,
+                ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
+         FROM posts
+         WHERE kind IN ('normal','tl_observation','quote_renote')
+           AND posted_at >= @old_start AND posted_at < @mid_start
+       ),
+       old AS (
+         SELECT text, posted_at, 'old' AS tier, kind FROM old_n
+         WHERE (rn - 1) % 10 = 0 LIMIT 5
+       )
+       SELECT text, posted_at, tier, kind FROM recent
+       UNION ALL SELECT text, posted_at, tier, kind FROM mid
+       UNION ALL SELECT text, posted_at, tier, kind FROM old
+       ORDER BY posted_at ASC`,
+      { recent_start: recentStart, mid_start: midStart, old_start: oldStart }
+    );
+
+    if (depth === "reference" && tieredPosts.length > 0) {
+      refPost = tieredPosts[Math.floor(Math.random() * tieredPosts.length)];
+    }
+  }
+
   const tlNotes = await db.all<TlNoteRow>(
     "SELECT text_summary, note_created_at FROM source_notes WHERE text_summary IS NOT NULL ORDER BY note_created_at DESC LIMIT 10"
   );
 
+  logger.info("generatePost.memoryDepth", { at, depth });
+
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
-    { role: "user", content: buildUserMessage(at, pastPosts, tlNotes, options.hint) },
+    { role: "user", content: buildUserMessage({ at, top3, tieredPosts, refPost, tlNotes, hint: options.hint }) },
   ];
 
   return callAiWithFallback(

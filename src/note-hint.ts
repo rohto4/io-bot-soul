@@ -1,6 +1,9 @@
+export type MemoryDepth = "normal" | "reminisce" | "reference";
+
 export type NoteHint = {
   topic: string;
   tone: string;
+  memoryDepth: MemoryDepth;
 };
 
 const topics = [
@@ -39,8 +42,17 @@ const tones = [
   "懐っこさ・連帯感（「〜だよね」、フォロワーへの親しみ）",
 ] as const;
 
+function drawMemoryDepth(rand: () => number): MemoryDepth {
+  const r = rand();
+  if (r < 0.05) return "reference";  // 5%: 過去の1件に言及
+  if (r < 0.10) return "reminisce";  // 5%: 蓄積から連想
+  return "normal";                    // 90%: 記憶を掘り返さない
+}
+
 export function drawNoteHint(random: () => number = Math.random): NoteHint {
-  const topic = topics[Math.floor(random() * topics.length)];
-  const tone = tones[Math.floor(random() * tones.length)];
-  return { topic, tone };
+  return {
+    topic: topics[Math.floor(random() * topics.length)],
+    tone: tones[Math.floor(random() * tones.length)],
+    memoryDepth: drawMemoryDepth(random),
+  };
 }
