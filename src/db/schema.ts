@@ -293,11 +293,11 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
     ["AI_LOG_RESPONSE_SUMMARY", "true", "boolean", "ai", "Whether response summaries can be logged."],
     ["BETA_TEST1_ENABLED", "false", "boolean", "beta", "beta-test1 mode: quote RN 40%, elapsed x5 for normal posts."],
     ["EXPERIENCE_MEMORY_ENABLED", "true", "boolean", "experience_memory", "Enable experience memory influence on normal posts."],
-    ["EXPERIENCE_MEMORY_ENABLED", "true", "boolean", "experience_memory", "Enable experience memory influence on normal posts."],
     ["EXPERIENCE_MEMORY_SAMPLE_COUNT", "50", "integer", "experience_memory", "Number of random experience_logs to sample for prompt context."],
     ["EXPERIENCE_MEMORY_PROMPT_WEIGHT", "50", "integer", "experience_memory", "Influence strength of experience memory in prompt (0-100)."],
     ["TL_REFERENCE_PROBABILITY", "0.50", "number", "gacha", "Probability that a normal post will reference the timeline."],
     ["TL_VIBE_RATIO", "0.75", "number", "gacha", "Within TL references, ratio of vibe-style mentions."],
+    ["DEBUG_STATUS", "true", "boolean", "debug", "Write generate-post prompt to data/debug/ when true."],
   ];
 
   for (const [key, value, valueType, category, description] of settings) {

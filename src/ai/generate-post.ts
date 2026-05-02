@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { DbClient } from "../db/client.js";
 import type { Logger } from "../logger.js";
 import type { RuntimeSettings } from "../runtime-settings.js";
@@ -235,25 +237,49 @@ export async function generatePostText(options: {
 
   logger.info("generatePost.memoryDepth", { at, depth, tlMode: options.tlMode ?? "no_tl", experienceWeight });
 
+  const userMessage = buildUserMessage({
+    at,
+    top3,
+    tieredPosts,
+    refPost,
+    tlNotes,
+    hint: options.hint,
+    tlSummaries: options.tlSummaries,
+    tlMode: options.tlMode,
+    dominantTopic: options.dominantTopic,
+    experienceLogs,
+    experienceWeight,
+  });
+
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
-    {
-      role: "user",
-      content: buildUserMessage({
-        at,
-        top3,
-        tieredPosts,
-        refPost,
-        tlNotes,
-        hint: options.hint,
-        tlSummaries: options.tlSummaries,
-        tlMode: options.tlMode,
-        dominantTopic: options.dominantTopic,
-        experienceLogs,
-        experienceWeight,
-      }),
-    },
+    { role: "user", content: userMessage },
   ];
+
+  // デバッグ: プロンプトをファイルに書き出す
+  if (readBooleanSetting(settings, "DEBUG_STATUS", false)) {
+    try {
+      const debugDir = join(process.cwd(), "data", "debug");
+      await mkdir(debugDir, { recursive: true });
+      const filename = `prompt_${at.replace(/[:.]/g, "-")}.txt`;
+      const content = [
+        `=== DEBUG PROMPT: ${at} ===`,
+        `=== depth=${depth} | tlMode=${options.tlMode ?? "no_tl"} | experienceWeight=${experienceWeight} ===`,
+        "",
+        "[SYSTEM]",
+        systemPrompt,
+        "",
+        "[USER]",
+        userMessage,
+        "",
+        "=== END ===",
+      ].join("\n");
+      await writeFile(join(debugDir, filename), content, "utf8");
+      logger.info("generatePost.debugPromptWritten", { at, file: filename });
+    } catch (e) {
+      logger.info("generatePost.debugPromptError", { at, error: String(e) });
+    }
+  }
 
   return callAiWithFallback(
     messages,

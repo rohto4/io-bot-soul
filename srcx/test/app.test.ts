@@ -70,8 +70,9 @@ describe("createBotApp", () => {
       error: vi.fn(),
       debug: vi.fn()
     };
-    // TL観測ガチャを無効化して常にnormalパスに入るよう設定
-    await db.run(`UPDATE m_runtime_setting SET setting_value='0' WHERE setting_key='TL_OBSERVATION_POST_PROBABILITY'`);
+    // v2: 引用RNを無効化 + TL参照を無効化して常にno_tlパスに入るよう設定（→AI失敗→template fallback→createNote）
+    await db.run(`UPDATE m_runtime_setting SET setting_value='0' WHERE setting_key='QUOTE_RENOTE_PROBABILITY'`);
+    await db.run(`UPDATE m_runtime_setting SET setting_value='0' WHERE setting_key='TL_REFERENCE_PROBABILITY'`);
     const client = {
       getNotifications: vi.fn().mockResolvedValue([]),
       createNote: vi.fn().mockImplementation(

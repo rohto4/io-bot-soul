@@ -62,14 +62,15 @@ describe("runTlScan", () => {
 });
 
 describe("TL observation action lottery", () => {
-  it("posts a tl_observation note when TL has enough summaries", async () => {
+  it("posts a normal/tl_vibe note when TL has dominant topic", async () => {
     const { runScheduledPostDraw } = await import("../../src/scheduled-post.js");
     const db = await createTestDb();
     const logger = createLogger();
+    // 共通キーワード「ランチ」（スペースで区切り独立トークンにする）で hasVibe=true を確実に発生させる
     const tlNotes = [
-      { id: "n1", createdAt: "2026-05-01T10:00:00Z", userId: "u1", user: { id: "u1", username: "a" }, text: "ノート1", cw: null, visibility: "public", replyId: null, renoteId: null },
-      { id: "n2", createdAt: "2026-05-01T10:01:00Z", userId: "u2", user: { id: "u2", username: "b" }, text: "ノート2", cw: null, visibility: "public", replyId: null, renoteId: null },
-      { id: "n3", createdAt: "2026-05-01T10:02:00Z", userId: "u3", user: { id: "u3", username: "c" }, text: "ノート3", cw: null, visibility: "public", replyId: null, renoteId: null }
+      { id: "n1", createdAt: "2026-05-01T10:00:00Z", userId: "u1", user: { id: "u1", username: "a" }, text: "ランチ おいしかった", cw: null, visibility: "public", replyId: null, renoteId: null },
+      { id: "n2", createdAt: "2026-05-01T10:01:00Z", userId: "u2", user: { id: "u2", username: "b" }, text: "ランチ たべすぎた", cw: null, visibility: "public", replyId: null, renoteId: null },
+      { id: "n3", createdAt: "2026-05-01T10:02:00Z", userId: "u3", user: { id: "u3", username: "c" }, text: "ランチ ねむい", cw: null, visibility: "public", replyId: null, renoteId: null }
     ];
     const client = {
       createNote: vi.fn(async () => ({ id: "tl-note" })),
@@ -77,19 +78,23 @@ describe("TL observation action lottery", () => {
       getUserNotes: vi.fn(async () => [])
     };
 
+    // random=0.25: quote_rn外れ(0.25>=0.20) → TL参照当たり(0.25<0.50) → vibe(0.25<0.75)
     await runScheduledPostDraw({
       db,
       logger,
       client,
       at: "2026-05-01T12:00:00Z",
       enabled: true,
-      random: () => 0.1, // 0.1 < 0.20 → TL観測抽選当たり
-      generateTlText: async () => "TLを眺めていた。"
+      random: () => 0.25,
+      generateText: async () => "TLを眺めていた。"
     });
 
     expect(client.createNote).toHaveBeenCalledTimes(1);
-    const post = await db.get<{ kind: string }>("SELECT kind FROM posts LIMIT 1");
-    expect(post?.kind).toBe("tl_observation");
+    const post = await db.get<{ kind: string; generated_reason: string }>(
+      "SELECT kind, generated_reason FROM posts LIMIT 1"
+    );
+    expect(post?.kind).toBe("normal");
+    expect(post?.generated_reason).toBe("tl_vibe");
   });
 
   it("posts a quote_renote when candidate is found (quoteRoll < quoteProb)", async () => {
@@ -128,31 +133,34 @@ describe("TL observation action lottery", () => {
     expect(post?.quote_source_note_id).toBe("source-note");
   });
 
-  it("skips without fallback to normal when TL has too few summaries", async () => {
+  it("falls back to no_tl and posts when TL has too few summaries", async () => {
     const { runScheduledPostDraw } = await import("../../src/scheduled-post.js");
     const db = await createTestDb();
     const logger = createLogger();
     const client = {
       createNote: vi.fn(async () => ({ id: "normal-note" })),
-      getHomeTimeline: vi.fn(async () => []), // 空 → too_few_summaries
+      getHomeTimeline: vi.fn(async () => []), // 空 → too_few_summaries → no_tl fallback
       getUserNotes: vi.fn(async () => [])
     };
 
-    // 0.1 < 0.20 → TL観測当たり → summaries=0 → skip（通常ノートへは落ちない）
+    // v2: TL不足時はskipではなくno_tlへフォールバック
+    // random=0.25: quote_rn外れ → TL参照当たり → summaries=0 → scheduledPost.tlFallback → no_tl で投稿
     await runScheduledPostDraw({
       db,
       logger,
       client,
       at: "2026-05-01T12:00:00Z",
       enabled: true,
-      random: () => 0.1,
+      random: () => 0.25,
       generateText: async () => "通常ノート。"
     });
 
-    expect(client.createNote).not.toHaveBeenCalled();
+    expect(client.createNote).toHaveBeenCalledTimes(1);
     expect(logger.info).toHaveBeenCalledWith(
-      "scheduledPost.skip",
+      "scheduledPost.tlFallback",
       expect.objectContaining({ reason: "too_few_summaries" })
     );
+    const post = await db.get<{ generated_reason: string }>("SELECT generated_reason FROM posts LIMIT 1");
+    expect(post?.generated_reason).toBe("no_tl");
   });
 });

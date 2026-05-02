@@ -61,7 +61,8 @@ describe("runScheduledPostDraw", () => {
       logger,
       client,
       at: "2026-05-01T00:30:00.000Z",
-      enabled: true
+      enabled: true,
+      random: () => 0.9 // 0.9 >= 0.20 → quote_rn外れ → normal path → min_interval check
     });
 
     expect(client.createNote).not.toHaveBeenCalled();
@@ -216,7 +217,7 @@ describe("runScheduledPostDraw", () => {
       note_id: "posted-note",
       kind: "normal",
       visibility: "public",
-      generated_reason: "scheduled_post_draw_v0"
+      generated_reason: "no_tl"
     });
     await expect(db.get("SELECT last_note_at FROM bot_state WHERE id = 1")).resolves.toEqual({
       last_note_at: "2026-05-01T12:00:00.000Z"
