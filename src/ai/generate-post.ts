@@ -12,7 +12,7 @@ import { buildCharacterSystemPrompt } from "./character-spec.js";
 import { callAiWithFallback } from "./chat-api.js";
 import type { ChatMessage } from "./chat-api.js";
 
-type PostRow = { text: string; posted_at: string; tier: "recent" | "mid" | "old" };
+type PostRow = { text: string; posted_at: string; tier: "recent" | "mid" | "old"; kind: string };
 type TlNoteRow = { text_summary: string; note_created_at: string };
 
 const systemPrompt = buildCharacterSystemPrompt([
@@ -23,10 +23,17 @@ const systemPrompt = buildCharacterSystemPrompt([
   "- 話題・感情・時間帯の切り口を変えること。観察・日常・内省・疑問・発見など引き出しを使い分ける",
 ]);
 
+const kindLabel: Record<string, string> = {
+  normal: "",
+  tl_observation: "[TL観測] ",
+  quote_renote: "[引用RN] ",
+};
+
 function formatPost(post: PostRow, maxLen: number): string {
   const date = post.posted_at.slice(0, 16);
+  const label = kindLabel[post.kind] ?? "";
   const text = post.text.replace(/\n/g, "｜").slice(0, maxLen);
-  return `${date}: ${text}`;
+  return `${date}: ${label}${text}`;
 }
 
 function buildUserMessage(at: string, pastPosts: PostRow[], tlNotes: TlNoteRow[], hint?: NoteHint): string {
@@ -106,39 +113,40 @@ export async function generatePostText(options: {
   const midStart = new Date(nowMs - 30 * DAY_MS).toISOString();
   const oldStart = new Date(nowMs - 60 * DAY_MS).toISOString();
 
+  // normal / tl_observation / quote_renote をすべて記憶に含める
   const pastPosts = await db.all<PostRow>(
     `WITH
      recent AS (
-       SELECT text, posted_at, 'recent' AS tier
+       SELECT text, posted_at, 'recent' AS tier, kind
        FROM posts
-       WHERE kind = 'normal' AND posted_at >= @recent_start
+       WHERE kind IN ('normal','tl_observation','quote_renote') AND posted_at >= @recent_start
        ORDER BY posted_at DESC LIMIT 20
      ),
      mid_n AS (
-       SELECT text, posted_at,
+       SELECT text, posted_at, kind,
               ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
        FROM posts
-       WHERE kind = 'normal'
+       WHERE kind IN ('normal','tl_observation','quote_renote')
          AND posted_at >= @mid_start AND posted_at < @recent_start
      ),
      mid AS (
-       SELECT text, posted_at, 'mid' AS tier FROM mid_n
+       SELECT text, posted_at, 'mid' AS tier, kind FROM mid_n
        WHERE (rn - 1) % 3 = 0 LIMIT 10
      ),
      old_n AS (
-       SELECT text, posted_at,
+       SELECT text, posted_at, kind,
               ROW_NUMBER() OVER (ORDER BY posted_at DESC) AS rn
        FROM posts
-       WHERE kind = 'normal'
+       WHERE kind IN ('normal','tl_observation','quote_renote')
          AND posted_at >= @old_start AND posted_at < @mid_start
      ),
      old AS (
-       SELECT text, posted_at, 'old' AS tier FROM old_n
+       SELECT text, posted_at, 'old' AS tier, kind FROM old_n
        WHERE (rn - 1) % 10 = 0 LIMIT 5
      )
-     SELECT text, posted_at, tier FROM recent
-     UNION ALL SELECT text, posted_at, tier FROM mid
-     UNION ALL SELECT text, posted_at, tier FROM old
+     SELECT text, posted_at, tier, kind FROM recent
+     UNION ALL SELECT text, posted_at, tier, kind FROM mid
+     UNION ALL SELECT text, posted_at, tier, kind FROM old
      ORDER BY posted_at ASC`,
     { recent_start: recentStart, mid_start: midStart, old_start: oldStart }
   );

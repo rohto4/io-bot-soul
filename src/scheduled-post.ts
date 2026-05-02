@@ -264,6 +264,22 @@ async function generateAndPost(
         { noteId: note.id, postedAt: options.at, text: quoteText, visibility, sourceNoteId: fetch.candidate.noteId, createdAt: options.at }
       );
       options.logger.info("quoteRenote.posted", { at: options.at, noteId: note.id, sourceNoteId: fetch.candidate.noteId });
+      // 引用RNを体験として記録
+      await options.db.run(
+        `INSERT INTO experience_logs
+           (occurred_at, source_note_id, source_user_id, experience_type,
+            summary, importance, posted_note_id, created_at)
+         VALUES (@occurredAt, @sourceNoteId, @sourceUserId, 'quote_renote',
+                 @summary, 1, @postedNoteId, @createdAt)`,
+        {
+          occurredAt: options.at,
+          sourceNoteId: fetch.candidate.noteId,
+          sourceUserId: fetch.candidate.userId,
+          summary: fetch.candidate.text.replace(/\n/g, " ").slice(0, 120),
+          postedNoteId: note.id,
+          createdAt: options.at,
+        }
+      );
       return;
     }
 
