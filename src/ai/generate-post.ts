@@ -22,7 +22,7 @@ const systemPrompt = buildCharacterSystemPrompt([
   "## 多様性ルール（必ず守ること）",
   "- 直前の投稿と同じ書き出しの言葉・フレーズを使わない",
   "- 直前の投稿と同じ締め方（末尾の文）を使わない",
-  "- 「深夜のTL」「生活ログ」「私えらいので」などの表現を毎回使わない。3回連続は禁止",
+  "- 「深夜のTL」「生活ログ」「私えらいので」などの特定フレーズ: 直近2件に含まれている場合は今回使わない",
   "- 話題・感情・時間帯の切り口を変えること。観察・日常・内省・疑問・発見など引き出しを使い分ける",
 ]);
 
@@ -65,6 +65,14 @@ function buildUserMessage(options: {
       const firstLine = post.text.split("\n")[0] ?? "";
       const lastLine = post.text.split("\n").filter(Boolean).at(-1) ?? "";
       lines.push(`- 書き出し:「${firstLine.slice(0, 30)}」 / 締め:「${lastLine.slice(0, 30)}」`);
+    }
+
+    // 直近2件の締め方に特定フレーズが含まれていれば今回の禁止フレーズとして明示する
+    const watchPhrases = ["私えらいので", "生活ログ", "深夜のTL"];
+    const recentEndings = top3.slice(0, 2).map(p => p.text.split("\n").filter(Boolean).at(-1) ?? "");
+    const banned = watchPhrases.filter(phrase => recentEndings.some(e => e.includes(phrase)));
+    if (banned.length > 0) {
+      lines.push(`※ 今回の締め方でこれらは使わないこと: ${banned.map(b => `「${b}〜」`).join(" / ")}`);
     }
   }
 
