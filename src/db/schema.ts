@@ -303,6 +303,7 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
     ["EXPERIENCE_MEMORY_PROMPT_WEIGHT", "50", "integer", "experience_memory", "体験メモリのプロンプト内影響度（0=無効 / 50=普通 / 100=最強）。"],
     ["TL_REFERENCE_PROBABILITY", "0.50", "number", "gacha", "通常ノート生成時にTLを参照する確率。"],
     ["TL_VIBE_RATIO", "0.75", "number", "gacha", "TL参照時に雰囲気言及（tl_vibe）を選ぶ比率（残り25%が特定言及tl_mention）。"],
+    ["MEMORY_DEPTH_REFERENCE_RATE", "0.05", "number", "gacha", "記憶深度ガチャのreference確率（過去1件に言及）。"],
     ["MEMORY_DEPTH_REMINISCE_RATE", "0.05", "number", "gacha", "記憶深度ガチャのreminisce確率（蓄積から連想）。"],
     // 睡眠スケジュール（JST HH:MM）
     ["SLEEP_TIME_MON", "01:30", "string", "sleep_schedule", "月曜夜の就寝目標時刻（JST HH:MM）。"],
@@ -319,9 +320,8 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
     ["WAKE_TIME_FRI", "08:30", "string", "sleep_schedule", "金曜朝の起床目標時刻（JST HH:MM）。"],
     ["WAKE_TIME_SAT", "11:00", "string", "sleep_schedule", "土曜朝の起床目標時刻（JST HH:MM）。"],
     ["WAKE_TIME_SUN", "10:00", "string", "sleep_schedule", "日曜朝の起床目標時刻（JST HH:MM）。"],
+    ["SLEEP_SCHEDULE_JITTER_MINUTES", "30", "integer", "sleep_schedule", "就寝・起床時刻のランダムずれ幅（分）。±この値の範囲内で実際の時刻が決まる。"],
     ["MURMUR_PROBABILITY_PER_TICK", "0.001", "number", "sleep_schedule", "5分tickあたりの寝言発生確率（月約2回 = 0.001）。"],
-    // 体験候補投稿
-    ["EXPERIENCE_CANDIDATE_POST_PROBABILITY", "0.10", "number", "experience", "5分tickで体験候補を投稿する確率。平均50分に1回程度。"],
     ["DEBUG_STATUS", "true", "boolean", "debug", "true のとき、ノート生成プロンプトを data/debug/ にファイル出力する。"],
     ["DAILY_CLEANUP_INTERVAL_SECONDS", "86400", "integer", "debug", "data/debug/ の古いプロンプトファイルを削除するバッチの実行間隔（秒）。デフォルト24時間。"],
   ];
