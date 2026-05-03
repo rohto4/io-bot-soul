@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS bot_state (
   sleep_at TEXT,
   last_note_at TEXT,
   last_timeline_scan_at TEXT,
+  ai_failure_streak INTEGER NOT NULL DEFAULT 0,
+  ai_backoff_until TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -235,6 +237,10 @@ export function schemaSql(provider: DatabaseProvider): string {
 
 export async function migrate(db: DbClient, provider: DatabaseProvider): Promise<void> {
   await db.exec(schemaSql(provider));
+  await addColumnsIfNotExists(db, provider, [
+    "ALTER TABLE bot_state ADD COLUMN ai_failure_streak INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE bot_state ADD COLUMN ai_backoff_until TEXT",
+  ]);
   const now = new Date().toISOString();
   await db.run(
     `
@@ -245,6 +251,17 @@ export async function migrate(db: DbClient, provider: DatabaseProvider): Promise
     { now }
   );
   await seedRuntimeSettings(db, now);
+}
+
+async function addColumnsIfNotExists(db: DbClient, provider: DatabaseProvider, alters: string[]): Promise<void> {
+  for (const alter of alters) {
+    const sql = provider === "postgres" ? alter.replace("ADD COLUMN ", "ADD COLUMN IF NOT EXISTS ") : alter;
+    try {
+      await db.exec(sql);
+    } catch {
+      // 列がすでに存在する場合は無視
+    }
+  }
 }
 
 async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
@@ -297,6 +314,8 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
     ["AI_SKIP_POST_ON_FALLBACK_FAILURE", "true", "boolean", "ai", "fallback AIも失敗した場合にskipするか。"],
     ["AI_LOG_PROMPT", "false", "boolean", "ai", "AIに渡すプロンプトをログ出力するか（デバッグ用）。"],
     ["AI_LOG_RESPONSE_SUMMARY", "true", "boolean", "ai", "AIのレスポンス概要をログ出力するか。"],
+    ["AI_BACKOFF_BASE_SECONDS", "300", "integer", "ai", "AI連続失敗時のバックオフ基準秒数。失敗1回=base, 2回=base*3, 3回以上=max。"],
+    ["AI_BACKOFF_MAX_SECONDS", "3600", "integer", "ai", "AI連続失敗時のバックオフ上限秒数（デフォルト1時間）。"],
     ["BETA_TEST1_ENABLED", "false", "boolean", "beta", "beta-test1モード: 引用RN40%・経過時間5倍。DBで切り替え、再起動不要。"],
     ["EXPERIENCE_MEMORY_ENABLED", "true", "boolean", "experience_memory", "通常ノート生成時に体験メモリ（experience_logs）をプロンプトに注入するか。"],
     ["EXPERIENCE_MEMORY_SAMPLE_COUNT", "50", "integer", "experience_memory", "プロンプトに注入するexperience_logsのランダムサンプル件数。"],

@@ -3,6 +3,7 @@ import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
 import { runTlScanPassive } from "./tl-scan.js";
 import { classifyExperienceCandidate } from "./ai/classify-experience-candidate.js";
+import { passesLightweightFilter } from "./safety-filter.js";
 import type { RuntimeSettings } from "./runtime-settings.js";
 
 export async function runExperienceScan(options: {
@@ -34,8 +35,14 @@ export async function runExperienceScan(options: {
   let saved = 0;
   let skipped = 0;
 
-  // TLの各ノートに対して安全判定
+  // TLの各ノートに対して軽量フィルタ → AI安全判定
   for (const summary of summaries) {
+    if (!passesLightweightFilter(summary)) {
+      options.logger.info("experienceScan.skip", { at: options.at, reason: "lightweight_filter", summary: summary.slice(0, 30) });
+      skipped++;
+      continue;
+    }
+
     const safe = await classifyExperienceCandidate({
       settings: options.settings,
       text: summary,

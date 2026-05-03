@@ -4,6 +4,7 @@ import type { MisskeyClient } from "./misskey/client.js";
 import type { RuntimeSettings } from "./runtime-settings.js";
 import { classifyQuoteSafety } from "./ai/classify-quote-safety.js";
 import { readIntegerSetting } from "./runtime-settings.js";
+import { passesLightweightFilter } from "./safety-filter.js";
 
 type ConsentedUser = { user_id: string };
 
@@ -86,7 +87,7 @@ export async function pickQuoteCandidate(options: {
     return null;
   }
 
-  // 6. シャッフルしてAI安全判定
+  // 6. シャッフルして軽量フィルタ → AI安全判定
   const shuffled = [...candidates].sort(() => rand() - 0.5);
 
   const classifyFn =
@@ -101,6 +102,10 @@ export async function pickQuoteCandidate(options: {
       }));
 
   for (const note of shuffled) {
+    if (!passesLightweightFilter(note.text!)) {
+      options.logger.info("quotePick.unsafe", { at: options.at, noteId: note.id, reason: "lightweight_filter" });
+      continue;
+    }
     const safe = await classifyFn(note.text!);
     if (safe) {
       options.logger.info("quotePick.found", {

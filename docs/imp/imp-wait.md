@@ -16,9 +16,9 @@
 - [x] **P4-4**: 新規 `src/ai/generate-experience-post.ts` — 選ばれた候補（summary + source_user_id）から「かなめがその体験をした」ノート文を生成するAIプロンプトを実装。（2026-05-04）
 - [x] **P4-5**: `src/scheduled-post.ts` に「体験候補投稿ガチャ」を追加（独立ガチャ、5分tick）。（2026-05-04）
 - [x] **P4-6**: `src/scheduled-post.ts` の既存テストに、体験候補ガチャが「外れ」た場合の `rand()` 消費を加味した調整。（2026-05-04）
-- [ ] **P4-7**: 新規テスト `srcx/test/experience-pick.test.ts` — `pickExperienceCandidate` の単体テスト。
-- [ ] **P4-8**: 新規テスト `srcx/test/scheduled-post-experience.test.ts` — 体験候補投稿ガチャの統合テスト。
-- [ ] **P4-9**: `imp-comp.md` に Phase 4 完了記録を追加。
+- [x] **P4-7**: 新規テスト `srcx/test/experience-pick.test.ts` — `pickExperienceCandidate` の単体テスト。（2026-05-04）
+- [x] **P4-8**: 新規テスト `srcx/test/scheduled-post-experience.test.ts` — 体験候補投稿ガチャの統合テスト。（2026-05-04）
+- [x] **P4-9**: `imp-comp.md` に Phase 4 完了記録を追加。（2026-05-04）
 
 ---
 
@@ -29,9 +29,7 @@
   - 許可済みユーザーが1件も含まれない場合、追加でTLを取得するか、非許可ユーザーのノートも安全判定のみで候補に入れるかを設計判断。
 - [ ] **P4X-2**: TL観測の20ノートから「特定の話題に偏っている」と判定するAI prompt を実装。
   - 例: 全20件のうち80%が「ゲーム」→ 偏りありとして `tl_observations` に「ゲームブーム」的なsummaryを記録。
-- [ ] **P4X-3**: 体験候補を弾くブラックリスト方式のAI判定を実装。
-  - すでに `classify-experience-candidate.ts` で実装済みの「安全判定」とは別に「この話題は体験として不適切」というブラックリストを追加。
-  - `docs/candi-ref/` にブラックリストカテゴリを整理。
+- [x] **P4X-3**: 軽量フィルタ `src/safety-filter.ts` 新規作成。`quote-pick.ts` / `experience-scan.ts` の AI 判定前に挿入。（2026-05-04）
 
 ---
 
@@ -56,10 +54,8 @@
 
 ### error backoff
 
-- [ ] **P6-5**: `src/ai/chat-api.ts` または `src/scheduled-post.ts` に、AI API連続失敗時のバックオフロジックを追加。
-  - 実装案: `bot_state` に `ai_failure_streak` と `ai_backoff_until` を追加。
-  - 失敗1回: 次の5分tickはスキップ。失敗2回: 15分スキップ。失敗3回: 1時間スキップ。成功でリセット。
-- [ ] **P6-6**: `m_runtime_setting` に `AI_BACKOFF_BASE_SECONDS`, `AI_BACKOFF_MAX_SECONDS` を追加。
+- [x] **P6-5**: `bot_state` に `ai_failure_streak` / `ai_backoff_until` を追加。`scheduled-post.ts` に backoff チェック + streak 更新を実装。失敗1→base秒, 2→base*3秒, 3以上→max秒。成功でリセット。（2026-05-04）
+- [x] **P6-6**: `m_runtime_setting` seed に `AI_BACKOFF_BASE_SECONDS`(300) / `AI_BACKOFF_MAX_SECONDS`(3600) を追加。（2026-05-04）
 
 ### AI日次上限
 

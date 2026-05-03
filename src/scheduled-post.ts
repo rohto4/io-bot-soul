@@ -237,11 +237,13 @@ async function fetchData(
 
 // ─── Phase 3: AI生成・投稿 ────────────────────────────────────────────
 
+type PostResult = "posted" | "ai_failure" | "skip";
+
 async function generateAndPost(
   fetch: FetchQuoteRn | FetchNormal,
   settings: RuntimeSettings,
   options: ScheduledPostDrawOptions
-): Promise<void> {
+): Promise<PostResult> {
   // ── quote_rn ──
   if (fetch.tag === "quote_rn") {
     const quoteGenerateFn =
@@ -283,12 +285,12 @@ async function generateAndPost(
           createdAt: options.at,
         }
       );
-      return;
+      return "posted";
     }
 
     // AI 失敗 → skip（通常ノートへは落ちない）
     options.logger.info("quoteRenote.skip", { at: options.at, reason: "ai_failure" });
-    return;
+    return "ai_failure";
   }
 
   // ── normal ──
@@ -317,7 +319,7 @@ async function generateAndPost(
 
   if (aiText === null && readBooleanSetting(settings, "AI_SKIP_POST_ON_AI_FAILURE", true)) {
     options.logger.info("scheduledPost.skip", { at: options.at, reason: "ai_failure", tlMode: fetch.tlMode });
-    return;
+    return "ai_failure";
   }
 
   const text = aiText ?? buildScheduledPostText(options.random);
@@ -332,6 +334,34 @@ async function generateAndPost(
   );
   await options.db.run("UPDATE bot_state SET last_note_at = @at, updated_at = @at WHERE id = 1", { at: options.at });
   options.logger.info("scheduledPost.posted", { at: options.at, noteId: note.id, tlMode: fetch.tlMode, visibility });
+  return "posted";
+}
+
+// ─── AI backoff ───────────────────────────────────────────────────────
+
+async function updateAiBackoff(
+  db: DbClient,
+  at: string,
+  failed: boolean,
+  settings: RuntimeSettings
+): Promise<void> {
+  if (!failed) {
+    await db.run("UPDATE bot_state SET ai_failure_streak = 0, ai_backoff_until = NULL WHERE id = 1");
+    return;
+  }
+
+  const state = await db.get<{ ai_failure_streak: number }>(
+    "SELECT ai_failure_streak FROM bot_state WHERE id = 1"
+  );
+  const streak = (state?.ai_failure_streak ?? 0) + 1;
+  const base = readIntegerSetting(settings, "AI_BACKOFF_BASE_SECONDS", 300);
+  const max = readIntegerSetting(settings, "AI_BACKOFF_MAX_SECONDS", 3600);
+  const backoffSeconds = streak === 1 ? base : streak === 2 ? base * 3 : max;
+  const backoffUntil = new Date(new Date(at).getTime() + backoffSeconds * 1000).toISOString();
+  await db.run(
+    "UPDATE bot_state SET ai_failure_streak = @streak, ai_backoff_until = @backoffUntil WHERE id = 1",
+    { streak, backoffUntil }
+  );
 }
 
 // ─── メインエントリ ───────────────────────────────────────────────────
@@ -346,6 +376,15 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
 
   const settings = await loadRuntimeSettings(options.db);
   const rand = options.random ?? Math.random;
+
+  // ===== AI backoff チェック =====
+  const backoffState = await options.db.get<{ ai_backoff_until: string | null }>(
+    "SELECT ai_backoff_until FROM bot_state WHERE id = 1"
+  );
+  if (backoffState?.ai_backoff_until && new Date(options.at) < new Date(backoffState.ai_backoff_until)) {
+    options.logger.info("scheduledPost.skip", { at: options.at, reason: "ai_backoff", backoffUntil: backoffState.ai_backoff_until });
+    return;
+  }
 
   // ===== 睡眠フロー =====
   type BotStateRow = { sleeping: number; sleep_at: string | null; wake_at: string | null };
@@ -530,5 +569,6 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
   }
 
   // ===== Phase 3: AI生成・投稿 =====
-  await generateAndPost(fetch, settings, options);
+  const postResult = await generateAndPost(fetch, settings, options);
+  await updateAiBackoff(options.db, options.at, postResult === "ai_failure", settings);
 }
