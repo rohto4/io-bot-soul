@@ -21,7 +21,7 @@ export function buildFollowGuide(user: MisskeyUserLite): string {
   return `${mention(user)} フォローありがとう。\nあなたの投稿を私の生活の一部にしてもいい？\nよければ、ピン留めノートに❤をつけてね。`;
 }
 
-export function parseReplyCommand(text: string | null | undefined): "stop" | "unfollow" | null {
+export function parseReplyCommand(text: string | null | undefined): "stop" | "unfollow" | "start" | null {
   const normalized = text?.trim().toLowerCase();
   if (!normalized) {
     return null;
@@ -33,6 +33,10 @@ export function parseReplyCommand(text: string | null | undefined): "stop" | "un
 
   if (normalized === "/unfollow") {
     return "unfollow";
+  }
+
+  if (normalized === "/start") {
+    return "start";
   }
 
   return null;
@@ -268,60 +272,73 @@ async function handleReplyCommand(options: {
   at: string;
   noteId: string;
   user: MisskeyUserLite;
-  command: "stop" | "unfollow";
+  command: "stop" | "unfollow" | "start";
 }): Promise<boolean> {
-  if (options.command === "unfollow") {
-    await options.client.deleteFollowing({ userId: options.user.id });
-  }
+  let replyText: string;
 
-  const status = options.command === "stop" ? "stopped" : "unfollowed";
-  const timestampColumn = options.command === "stop" ? "stopped_at" : "unfollowed_at";
-  await options.db.run(
-      `
-      INSERT INTO experience_source_consents (
-        user_id,
-        username,
-        host,
-        consent_status,
-        ${timestampColumn},
-        last_checked_at,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        @user_id,
-        @username,
-        @host,
-        @consent_status,
-        @commanded_at,
-        @last_checked_at,
-        @created_at,
-        @updated_at
-      )
-      ON CONFLICT(user_id) DO UPDATE SET
-        username = excluded.username,
-        host = excluded.host,
-        consent_status = excluded.consent_status,
-        ${timestampColumn} = excluded.${timestampColumn},
-        last_checked_at = excluded.last_checked_at,
-        updated_at = excluded.updated_at
-      `,
-    {
-      user_id: options.user.id,
-      username: options.user.username,
-      host: options.user.host ?? null,
-      consent_status: status,
-      commanded_at: options.at,
-      last_checked_at: options.at,
-      created_at: options.at,
-      updated_at: options.at
+  if (options.command === "start") {
+    // /start: stopped 状態からの復帰のみ対応
+    const existing = await options.db.get<{ consent_status: string }>(
+      "SELECT consent_status FROM experience_source_consents WHERE user_id = @user_id LIMIT 1",
+      { user_id: options.user.id }
+    );
+
+    if (existing?.consent_status === "stopped") {
+      await options.db.run(
+        `UPDATE experience_source_consents
+         SET consent_status = 'consented', stopped_at = NULL, last_checked_at = @at, updated_at = @at
+         WHERE user_id = @user_id`,
+        { at: options.at, user_id: options.user.id }
+      );
+      replyText = `${mention(options.user)} 了解。接触を再開します。`;
+    } else if (existing?.consent_status === "unfollowed") {
+      replyText = `${mention(options.user)} フォロー解除済みのため /start では復帰できません。再フォローしてピン留めノートへ❤リアクションをお願いします。`;
+    } else if (existing?.consent_status === "consented") {
+      replyText = `${mention(options.user)} 既に有効な状態です。`;
+    } else {
+      replyText = `${mention(options.user)} 同意記録がありません。ピン留めノートへの❤リアクションから始めてください。`;
     }
-  );
+  } else {
+    // /stop または /unfollow
+    if (options.command === "unfollow") {
+      await options.client.deleteFollowing({ userId: options.user.id });
+    }
 
-  const replyText =
-    options.command === "stop"
-      ? `${mention(options.user)} 了解。リプライや引用RNなどの接触を止めます。`
-      : `${mention(options.user)} 了解。フォロー解除して、今後あなたのノートを体験候補に使いません。`;
+    const status = options.command === "stop" ? "stopped" : "unfollowed";
+    const timestampColumn = options.command === "stop" ? "stopped_at" : "unfollowed_at";
+    await options.db.run(
+      `INSERT INTO experience_source_consents (
+         user_id, username, host, consent_status, ${timestampColumn},
+         last_checked_at, created_at, updated_at
+       )
+       VALUES (
+         @user_id, @username, @host, @consent_status, @commanded_at,
+         @last_checked_at, @created_at, @updated_at
+       )
+       ON CONFLICT(user_id) DO UPDATE SET
+         username = excluded.username,
+         host = excluded.host,
+         consent_status = excluded.consent_status,
+         ${timestampColumn} = excluded.${timestampColumn},
+         last_checked_at = excluded.last_checked_at,
+         updated_at = excluded.updated_at`,
+      {
+        user_id: options.user.id,
+        username: options.user.username,
+        host: options.user.host ?? null,
+        consent_status: status,
+        commanded_at: options.at,
+        last_checked_at: options.at,
+        created_at: options.at,
+        updated_at: options.at
+      }
+    );
+
+    replyText =
+      options.command === "stop"
+        ? `${mention(options.user)} 了解。リプライや引用RNなどの接触を止めます。/start で再開できます。`
+        : `${mention(options.user)} 了解。フォロー解除して、今後あなたのノートを体験候補に使いません。`;
+  }
 
   const reply = await options.client.createNote({
     replyId: options.noteId,
@@ -329,10 +346,8 @@ async function handleReplyCommand(options: {
   });
 
   await options.db.run(
-      `
-      INSERT INTO reply_logs (target_note_id, target_user_id, reply_note_id, replied_at, reason, status)
-      VALUES (@target_note_id, @target_user_id, @reply_note_id, @replied_at, @reason, @status)
-      `,
+    `INSERT INTO reply_logs (target_note_id, target_user_id, reply_note_id, replied_at, reason, status)
+     VALUES (@target_note_id, @target_user_id, @reply_note_id, @replied_at, @reason, @status)`,
     {
       target_note_id: options.noteId,
       target_user_id: options.user.id,
