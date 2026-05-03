@@ -15,6 +15,11 @@ import { pickQuoteCandidate } from "./quote-pick.js";
 import type { QuoteCandidate } from "./quote-pick.js";
 import { drawNoteHint } from "./note-hint.js";
 import type { NoteHint } from "./note-hint.js";
+import { computeNextSleepAt, computeNextWakeAt } from "./sleep-schedule.js";
+import { generateOyasumiPost, generateOhayouPost, generateMurmurPost } from "./ai/generate-sleep-post.js";
+import { generateExperiencePost } from "./ai/generate-experience-post.js";
+import { pickExperienceCandidate } from "./experience-pick.js";
+import { checkNotesPerHour, checkNotesPerDay, checkQuoteRenotesPerDay } from "./rate-limit.js";
 
 type ScheduledPostClient = Pick<MisskeyClient, "createNote" | "getHomeTimeline">;
 
@@ -36,7 +41,7 @@ export type ScheduledPostDrawOptions = {
 const shortPostTemplates = [
   "生活ログを確認してる。\n今日は面白いノートがいくつかあった。\nいい感じ。",
   "生活ログを同期したよ。\n気になるものが増えてるのは\n悪くないと思ってる。",
-  "生活ログ更新中。\n今日も観察がはかどった。\nこういう日が続くといい。",
+  "生活ログ更新中。\n今日も観測がはかどった。\nこういう日が続くといい。",
   "生活ログ、特に異常なし。\nもう少し起きながら、\n次の記録を探してる。",
 ] as const;
 
@@ -137,7 +142,7 @@ function drawAction(
 
   // 通常ノートのTL参照判定
   const tlRefProb = readNumberSetting(settings, "TL_REFERENCE_PROBABILITY", 0.50);
-  const hint = drawNoteHint(rand);
+  const hint = drawNoteHint(rand, settings);
 
   if (rand() < tlRefProb) {
     // TL参照当選 → 雰囲気/特定抽選
@@ -341,6 +346,163 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
 
   const settings = await loadRuntimeSettings(options.db);
   const rand = options.random ?? Math.random;
+
+  // ===== 睡眠フロー =====
+  type BotStateRow = { sleeping: number; sleep_at: string | null; wake_at: string | null };
+  const botState = await options.db.get<BotStateRow>(
+    "SELECT sleeping, sleep_at, wake_at FROM bot_state WHERE id = 1"
+  );
+
+  // sleep_at が未設定なら今夜の就寝時刻を計算してセット
+  if (!botState?.sleep_at) {
+    const newSleepAt = computeNextSleepAt(settings, new Date(options.at), rand);
+    await options.db.run(
+      "UPDATE bot_state SET sleep_at = @sleepAt, updated_at = @at WHERE id = 1",
+      { sleepAt: newSleepAt, at: options.at }
+    );
+    if (botState) botState.sleep_at = newSleepAt;
+  }
+
+  const now = new Date(options.at);
+  const sleeping = (botState?.sleeping ?? 0) === 1;
+
+  if (sleeping) {
+    const wakeAt = botState?.wake_at ? new Date(botState.wake_at) : null;
+
+    if (!wakeAt) {
+      const newWakeAt = computeNextWakeAt(settings, now, rand);
+      await options.db.run("UPDATE bot_state SET wake_at = @wakeAt WHERE id = 1", { wakeAt: newWakeAt });
+      options.logger.info("scheduledPost.skip", { at: options.at, reason: "sleeping_no_wake_at" });
+      return;
+    }
+
+    if (now >= wakeAt) {
+      // 起床
+      const newSleepAt = computeNextSleepAt(settings, now, rand);
+      await options.db.run(
+        "UPDATE bot_state SET sleeping = 0, wake_at = NULL, sleep_at = @sleepAt, updated_at = @at WHERE id = 1",
+        { sleepAt: newSleepAt, at: options.at }
+      );
+      const text = await (options.generateText
+        ? options.generateText({ tlMode: "no_tl" })
+        : generateOhayouPost({ settings, at: options.at, chutesApiKey: process.env.CHUTES_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, logger: options.logger }));
+      if (text) {
+        const note = await options.client.createNote({ text, visibility: "public" });
+        await options.db.run(
+          `INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+           VALUES (@noteId, @postedAt, 'normal', @text, 'public', 'ohayou', @createdAt)`,
+          { noteId: note.id, postedAt: options.at, text, createdAt: options.at }
+        );
+        await options.db.run("UPDATE bot_state SET last_note_at = @at WHERE id = 1", { at: options.at });
+        options.logger.info("scheduledPost.ohayou", { at: options.at, noteId: note.id });
+      }
+      return;
+    }
+
+    // 寝言ガチャ
+    const murmurProb = readNumberSetting(settings, "MURMUR_PROBABILITY_PER_TICK", 0.001);
+    if (rand() < murmurProb) {
+      const text = await generateMurmurPost({ settings, at: options.at, chutesApiKey: process.env.CHUTES_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, logger: options.logger });
+      if (text) {
+        const note = await options.client.createNote({ text, visibility: "public" });
+        await options.db.run(
+          `INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+           VALUES (@noteId, @postedAt, 'normal', @text, 'public', 'murmur', @createdAt)`,
+          { noteId: note.id, postedAt: options.at, text, createdAt: options.at }
+        );
+        options.logger.info("scheduledPost.murmur", { at: options.at, noteId: note.id });
+      }
+      return;
+    }
+
+    options.logger.info("scheduledPost.skip", { at: options.at, reason: "sleeping" });
+    return;
+  }
+
+  // 就寝チェック
+  const sleepAt = botState?.sleep_at ? new Date(botState.sleep_at) : null;
+  if (sleepAt && now >= sleepAt) {
+    const newWakeAt = computeNextWakeAt(settings, now, rand);
+    await options.db.run(
+      "UPDATE bot_state SET sleeping = 1, sleep_at = NULL, wake_at = @wakeAt, updated_at = @at WHERE id = 1",
+      { wakeAt: newWakeAt, at: options.at }
+    );
+    const text = await generateOyasumiPost({ settings, at: options.at, chutesApiKey: process.env.CHUTES_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY, logger: options.logger });
+    if (text) {
+      const note = await options.client.createNote({ text, visibility: "public" });
+      await options.db.run(
+        `INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+         VALUES (@noteId, @postedAt, 'normal', @text, 'public', 'oyasumi', @createdAt)`,
+        { noteId: note.id, postedAt: options.at, text, createdAt: options.at }
+      );
+      await options.db.run("UPDATE bot_state SET last_note_at = @at WHERE id = 1", { at: options.at });
+      options.logger.info("scheduledPost.oyasumi", { at: options.at, noteId: note.id });
+    }
+    return; // 就寝したので通常投稿フローには入らない
+  }
+
+  // ===== rate limit チェック =====
+  const notesPerHourLimit = readIntegerSetting(settings, "NOTES_PER_HOUR", 5);
+  const notesPerDayLimit = readIntegerSetting(settings, "NOTES_PER_DAY", 50);
+  const quotePerDayLimit = readIntegerSetting(settings, "QUOTE_RENOTES_PER_DAY", 5);
+
+  if (await checkNotesPerHour(options.db, options.at, notesPerHourLimit)) {
+    options.logger.info("scheduledPost.skip", { at: options.at, reason: "rate_limit", scope: "notes_per_hour", limit: notesPerHourLimit });
+    return;
+  }
+  if (await checkNotesPerDay(options.db, options.at, notesPerDayLimit)) {
+    options.logger.info("scheduledPost.skip", { at: options.at, reason: "rate_limit", scope: "notes_per_day", limit: notesPerDayLimit });
+    return;
+  }
+  if (await checkQuoteRenotesPerDay(options.db, options.at, quotePerDayLimit)) {
+    options.logger.info("scheduledPost.skip", { at: options.at, reason: "rate_limit", scope: "quote_renotes_per_day", limit: quotePerDayLimit });
+    return;
+  }
+
+  // ===== 体験候補投稿ガチャ =====
+  const expCandidateProb = readNumberSetting(settings, "EXPERIENCE_CANDIDATE_POST_PROBABILITY", 0.10);
+  if (rand() < expCandidateProb) {
+    const candidate = await pickExperienceCandidate(options.db, options.at);
+    if (candidate) {
+      const expText = options.generateText
+        ? await options.generateText({ tlMode: "no_tl" })
+        : await generateExperiencePost({
+            settings,
+            candidateSummary: candidate.summary,
+            sourceUsername: candidate.source_user_id,
+            at: options.at,
+            chutesApiKey: process.env.CHUTES_API_KEY,
+            openaiApiKey: process.env.OPENAI_API_KEY,
+            logger: options.logger,
+          });
+      if (expText) {
+        const note = await options.client.createNote({ text: expText, visibility: "public" });
+        await options.db.run(
+          `INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+           VALUES (@noteId, @postedAt, 'normal', @text, 'public', 'experience_candidate', @createdAt)`,
+          { noteId: note.id, postedAt: options.at, text: expText, createdAt: options.at }
+        );
+        await options.db.run(
+          `UPDATE experience_candidates SET status = 'executed', executed_post_id = @postId WHERE id = @id`,
+          { postId: note.id, id: candidate.id }
+        );
+        await options.db.run(
+          `INSERT INTO experience_logs (occurred_at, source_note_id, source_user_id, experience_type, summary, importance, posted_note_id, created_at)
+           VALUES (@at, NULL, @sourceUserId, 'candidate_post', @summary, 1, @postedNoteId, @at)`,
+          { at: options.at, sourceUserId: candidate.source_user_id, summary: candidate.summary, postedNoteId: note.id }
+        );
+        await options.db.run("UPDATE bot_state SET last_note_at = @at WHERE id = 1", { at: options.at });
+        options.logger.info("scheduledPost.experienceCandidate", { at: options.at, noteId: note.id, candidateId: candidate.id });
+      } else {
+        options.logger.info("scheduledPost.skip", { at: options.at, reason: "experience_candidate_ai_failure" });
+      }
+      return;
+    } else {
+      options.logger.info("scheduledPost.skip", { at: options.at, reason: "no_experience_candidates" });
+    }
+  }
+
+  // ===== 通常の投稿抽選（既存フロー）=====
 
   // ===== Phase 1: ガチャ =====
   const latestNormal = await options.db.get<{ posted_at: string }>(
