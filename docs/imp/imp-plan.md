@@ -50,6 +50,29 @@
 - 時間帯（朝・昼・夜・深夜）ごとにお題の出現確率を調整する（例：「カップ麺」は深夜に出やすく）。
 - 実投稿を見てユーザーがお題リストを添削できる仕組み（P2 GUI と合わせて）。
 
+### Phase 2.5: NoteHint 記憶深度確率 DB移行
+
+- `MEMORY_DEPTH_REFERENCE_RATE` / `MEMORY_DEPTH_REMINISCE_RATE` を `m_runtime_setting` に移行。
+- `drawMemoryDepth` が settings を受け取り、DB値を使うように変更。
+- 実装詳細: `docs/imp/impl-tonight.md` タスク①
+
+### Phase 2.6: 睡眠システム
+
+- 週単位の就寝・起床スケジュール（曜日別 HH:MM 設定）。
+- `bot_state.sleeping` / `sleep_at` / `wake_at` で状態管理。
+- 睡眠中は通常投稿停止 → 起床ガチャ・寝言ガチャに切り替え。
+- おやすみ・おはよう・寝言の AI 生成投稿。
+- 仕様: `docs/spec/sleep-system.md`
+- 実装詳細: `docs/imp/impl-tonight.md` タスク②
+
+### Phase 3.5: 体験候補専用AI判定
+
+- `classify-experience-candidate.ts` を新規作成（引用なし前提のゆるい判定）。
+- `experience-scan.ts` で使用する分類器を差し替え。
+- `experience_candidates.expires_at` = 作成から3日後。
+- 仕様: `docs/spec/experience-candidate-classifier.md`
+- 実装詳細: `docs/imp/impl-tonight.md` タスク③
+
 ### Phase 4: 体験候補
 
 - 許可済みユーザーのnoteを優先探索。
