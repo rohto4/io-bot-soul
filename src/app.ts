@@ -8,11 +8,17 @@ import { runExperienceScan } from "./experience-scan.js";
 
 type Clock = () => Date;
 
+type StartIntervals = {
+  pollIntervalMs?: number;
+  postDrawIntervalMs?: number;
+  experienceScanIntervalMs?: number;
+};
+
 export type BotApp = {
   pollOnce(): Promise<void>;
   drawPostOnce(): Promise<void>;
   experienceScanOnce(): Promise<void>;
-  start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number; experienceScanIntervalMs?: number }): () => void;
+  start(_testIntervals?: StartIntervals): () => void;
 };
 
 export function createBotApp(options: {
@@ -104,75 +110,91 @@ export function createBotApp(options: {
     });
   }
 
-  function start(intervals: { pollIntervalMs: number; postDrawIntervalMs: number; experienceScanIntervalMs?: number }): () => void {
-    let pollRunning = false;
-    let postDrawRunning = false;
-    let experienceScanRunning = false;
+  function start(_testIntervals?: StartIntervals): () => void {
+    let cleanup: (() => void) | null = null;
 
-    function runPoll(): void {
-      if (pollRunning) {
-        options.logger.warn("poll.skip", { reason: "already_running" });
-        return;
+    void (async () => {
+      let pollIntervalMs: number;
+      let postDrawIntervalMs: number;
+      let experienceScanIntervalMs: number;
+
+      if (_testIntervals) {
+        pollIntervalMs = _testIntervals.pollIntervalMs ?? 60000;
+        postDrawIntervalMs = _testIntervals.postDrawIntervalMs ?? 300000;
+        experienceScanIntervalMs = _testIntervals.experienceScanIntervalMs ?? 1200000;
+      } else {
+        const runtimeSettings = await loadRuntimeSettings(options.db);
+        pollIntervalMs = readIntegerSetting(runtimeSettings, "POLL_INTERVAL_SECONDS", 60) * 1000;
+        postDrawIntervalMs = readIntegerSetting(runtimeSettings, "POST_DRAW_INTERVAL_SECONDS", 300) * 1000;
+        experienceScanIntervalMs = readIntegerSetting(runtimeSettings, "EXPERIENCE_SCAN_INTERVAL_SECONDS", 1200) * 1000;
       }
 
-      pollRunning = true;
-      void pollOnce()
-        .catch((error: unknown) => {
-          options.logger.error("poll.error", { error: String(error) });
-        })
-        .finally(() => {
-          pollRunning = false;
-        });
-    }
+      let pollRunning = false;
+      let postDrawRunning = false;
+      let experienceScanRunning = false;
 
-    function runPostDraw(): void {
-      if (postDrawRunning) {
-        options.logger.warn("postDraw.skip", { reason: "already_running" });
-        return;
+      function runPoll(): void {
+        if (pollRunning) {
+          options.logger.warn("poll.skip", { reason: "already_running" });
+          return;
+        }
+        pollRunning = true;
+        void pollOnce()
+          .catch((error: unknown) => {
+            options.logger.error("poll.error", { error: String(error) });
+          })
+          .finally(() => {
+            pollRunning = false;
+          });
       }
 
-      postDrawRunning = true;
-      void drawPostOnce()
-        .catch((error: unknown) => {
-          options.logger.error("postDraw.error", { error: String(error) });
-        })
-        .finally(() => {
-          postDrawRunning = false;
-        });
-    }
-
-    function runExperienceScanWrapper(): void {
-      if (experienceScanRunning) {
-        options.logger.warn("experienceScan.skip", { reason: "already_running" });
-        return;
+      function runPostDraw(): void {
+        if (postDrawRunning) {
+          options.logger.warn("postDraw.skip", { reason: "already_running" });
+          return;
+        }
+        postDrawRunning = true;
+        void drawPostOnce()
+          .catch((error: unknown) => {
+            options.logger.error("postDraw.error", { error: String(error) });
+          })
+          .finally(() => {
+            postDrawRunning = false;
+          });
       }
-      experienceScanRunning = true;
-      void experienceScanOnce()
-        .catch((error: unknown) => {
-          options.logger.error("experienceScan.error", { error: String(error) });
-        })
-        .finally(() => {
-          experienceScanRunning = false;
-        });
-    }
 
-    runPoll();
+      function runExperienceScanWrapper(): void {
+        if (experienceScanRunning) {
+          options.logger.warn("experienceScan.skip", { reason: "already_running" });
+          return;
+        }
+        experienceScanRunning = true;
+        void experienceScanOnce()
+          .catch((error: unknown) => {
+            options.logger.error("experienceScan.error", { error: String(error) });
+          })
+          .finally(() => {
+            experienceScanRunning = false;
+          });
+      }
 
-    const pollTimer = setInterval(() => {
       runPoll();
-    }, intervals.pollIntervalMs);
-    const postDrawTimer = setInterval(() => {
-      runPostDraw();
-    }, intervals.postDrawIntervalMs);
-    const experienceScanIntervalMs = intervals.experienceScanIntervalMs ?? 600000; // デフォルト10分
-    const experienceScanTimer = setInterval(() => {
-      runExperienceScanWrapper();
-    }, experienceScanIntervalMs);
+
+      const pollTimer = setInterval(runPoll, pollIntervalMs);
+      const postDrawTimer = setInterval(runPostDraw, postDrawIntervalMs);
+      const experienceScanTimer = setInterval(runExperienceScanWrapper, experienceScanIntervalMs);
+
+      options.logger.info("bot.timers.configured", { pollIntervalMs, postDrawIntervalMs, experienceScanIntervalMs });
+
+      cleanup = () => {
+        clearInterval(pollTimer);
+        clearInterval(postDrawTimer);
+        clearInterval(experienceScanTimer);
+      };
+    })();
 
     return () => {
-      clearInterval(pollTimer);
-      clearInterval(postDrawTimer);
-      clearInterval(experienceScanTimer);
+      if (cleanup) cleanup();
     };
   }
 

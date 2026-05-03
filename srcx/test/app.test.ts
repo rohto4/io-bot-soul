@@ -53,7 +53,7 @@ describe("createBotApp", () => {
     expect(logger.info).toHaveBeenCalledWith("postDraw.tick", {
       at: "2026-05-01T00:00:00.000Z"
     });
-    expect(logger.info).toHaveBeenCalledTimes(7);
+    expect(logger.info).toHaveBeenCalledTimes(8); // bot.timers.configured + poll×6 + postDraw×1
   });
 
   it("skips overlapping post draw ticks", async () => {
