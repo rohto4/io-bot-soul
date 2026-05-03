@@ -311,8 +311,13 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
       `
       INSERT INTO m_runtime_setting (setting_key, setting_value, value_type, category, description, updated_at)
       VALUES (@key, @value, @valueType, @category, @description, @updatedAt)
-      ON CONFLICT(setting_key) DO NOTHING
+      ON CONFLICT(setting_key) DO UPDATE SET
+        value_type   = excluded.value_type,
+        category     = excluded.category,
+        description  = excluded.description,
+        updated_at   = excluded.updated_at
       `,
+      // setting_value は更新しない（ユーザーが変更した値を保持）
       { key, value, valueType, category, description, updatedAt: now }
     );
   }
