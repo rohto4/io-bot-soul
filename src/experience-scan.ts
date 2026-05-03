@@ -2,7 +2,7 @@ import type { DbClient } from "./db/client.js";
 import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
 import { runTlScanPassive } from "./tl-scan.js";
-import { classifyQuoteSafety } from "./ai/classify-quote-safety.js";
+import { classifyExperienceCandidate } from "./ai/classify-experience-candidate.js";
 import type { RuntimeSettings } from "./runtime-settings.js";
 
 export async function runExperienceScan(options: {
@@ -36,7 +36,7 @@ export async function runExperienceScan(options: {
 
   // TLの各ノートに対して安全判定
   for (const summary of summaries) {
-    const safe = await classifyQuoteSafety({
+    const safe = await classifyExperienceCandidate({
       settings: options.settings,
       text: summary,
       chutesApiKey: options.chutesApiKey,
@@ -45,23 +45,23 @@ export async function runExperienceScan(options: {
     });
 
     if (safe) {
-      // experience_candidates に保存
-      // source_note_id が必要だが、runTlScanPassive では返さないので、
-      // このバージョンでは summary だけを保存する簡易版とする
+      const expiresAt = new Date(new Date(options.at).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+
       await options.db.run(
         `INSERT INTO experience_candidates (
            source_note_id, source_user_id, picked_at, candidate_type,
-           summary, safety_class, status, created_at
+           summary, safety_class, status, expires_at, created_at
          )
          VALUES (
            @sourceNoteId, @sourceUserId, @pickedAt, 'tl_observation',
-           @summary, 'ok', 'pending', @createdAt
+           @summary, 'ok', 'pending', @expiresAt, @createdAt
          )`,
         {
           sourceNoteId: `tl_${options.at}_${saved}`, // 仮のID
           sourceUserId: null,
           pickedAt: options.at,
           summary,
+          expiresAt,   // 追加
           createdAt: options.at,
         }
       );

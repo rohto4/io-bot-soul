@@ -1,3 +1,6 @@
+import type { RuntimeSettings } from "./runtime-settings.js";
+import { readNumberSetting } from "./runtime-settings.js";
+
 export type MemoryDepth = "normal" | "reminisce" | "reference";
 
 export type NoteStyle = {
@@ -78,15 +81,17 @@ const noteStyles: NoteStyle[] = [
   },
 ];
 
-function drawMemoryDepth(rand: () => number): MemoryDepth {
+function drawMemoryDepth(rand: () => number, settings?: RuntimeSettings): MemoryDepth {
+  const referenceRate = settings ? readNumberSetting(settings, "MEMORY_DEPTH_REFERENCE_RATE", 0.05) : 0.05;
+  const reminisceRate = settings ? readNumberSetting(settings, "MEMORY_DEPTH_REMINISCE_RATE", 0.05) : 0.05;
   const r = rand();
-  if (r < 0.05) return "reference";  // 5%: 過去の1件に言及
-  if (r < 0.10) return "reminisce";  // 5%: 蓄積から連想
-  return "normal";                    // 90%: 記憶を掘り返さない
+  if (r < referenceRate) return "reference";
+  if (r < referenceRate + reminisceRate) return "reminisce";
+  return "normal";
 }
 
-export function drawNoteHint(random: () => number = Math.random): NoteHint {
-  const memoryDepth = drawMemoryDepth(random);
+export function drawNoteHint(random: () => number = Math.random, settings?: RuntimeSettings): NoteHint {
+  const memoryDepth = drawMemoryDepth(random, settings);
   return {
     topic: topics[Math.floor(random() * topics.length)],
     tone: tones[Math.floor(random() * tones.length)],

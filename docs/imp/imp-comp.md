@@ -167,3 +167,50 @@
 - OpenAI `gpt-5.4-mini` の疎通を確認。
 - Chutesは `max_tokens`、OpenAI `gpt-5.4-mini` は `max_completion_tokens` が必要と確認。
 - Chutes Kimiは内部推論で `reasoning_tokens` を消費し、token上限が小さいと `content = null` になることを確認。
+
+## 2026-05-04 Phase 2.5 + Phase 2.6 + Phase 3.5 実装（深夜セッション）
+
+### Phase 2.5: NoteHint 記憶深度確率 DB移行
+- `note-hint.ts`: `drawNoteHint` / `drawMemoryDepth` に `settings?: RuntimeSettings` を追加。
+- DBから `MEMORY_DEPTH_REFERENCE_RATE` / `MEMORY_DEPTH_REMINISCE_RATE` を読むように変更（未指定時は0.05で後方互換）。
+- `scheduled-post.ts`: `drawNoteHint(rand)` → `drawNoteHint(rand, settings)` に変更。
+- `schema.ts`: seed に `MEMORY_DEPTH_REFERENCE_RATE` / `MEMORY_DEPTH_REMINISCE_RATE` を追加。
+
+### Phase 2.6: 睡眠システム
+- `sleep-schedule.ts` 新規: `computeNextSleepAt` / `computeNextWakeAt` を実装。
+  - JST変換、曜日別設定、jitter（±30分）、`SLEEP_TIME<06:00` の翌日扱い。
+- `generate-sleep-post.ts` 新規: `generateOyasumiPost` / `generateOhayouPost` / `generateMurmurPost`。
+  - `buildCharacterSystemPrompt` 活用。maxTokens: 300, temperature: 0.9。
+- `scheduled-post.ts`: `runScheduledPostDraw` の先頭に睡眠フロー（就寝→起床→寝言→通常）を挿入。
+  - sleeping=1 の間は通常投稿停止。投稿は `generated_reason = oyasumi/ohayou/murmur` で記録。
+- `schema.ts`: seed に曜日別 `SLEEP_TIME_*` / `WAKE_TIME_*`（14件）+ `SLEEP_SCHEDULE_JITTER_MINUTES` + `MURMUR_PROBABILITY_PER_TICK` を追加。
+
+### Phase 3.5: 体験候補専用AI判定
+- `classify-experience-candidate.ts` 新規: 引用なし前提のゆるい安全判定。
+  - OK: 日常・趣味・食事・ゲーム・感情の軽い表現・季節・天気・技術・学習・ミーム。
+  - NG: 個人特定情報・深刻な病気/事故/死・激しい怒り/炎上/攻撃・政治・成人向け。
+- `experience-scan.ts`: `classifyQuoteSafety` → `classifyExperienceCandidate` に差し替え。
+- `experience-scan.ts`: `experience_candidates` INSERT に `expires_at`（作成から3日後）を追加。
+
+### テスト・ビルド
+- `npm run build`: 成功（エラー0）。
+- `npm test`: 45/45 通過。`scheduled-post` テストの `rand()` 消費カウント調整あり。
+
+## 2026-05-04 Phase 4: 体験候補投稿フロー
+
+- `src/experience-pick.ts` 新規: `pickExperienceCandidate` — `status='pending'` かつ `expires_at > now` の候補からランダムに1件選ぶ。
+- `src/ai/generate-experience-post.ts` 新規: `generateExperiencePost` — 候補 summary と source_user_id から「かなめがその体験をした」ノートを生成。buildCharacterSystemPrompt 使用、maxTokens: 300, temperature: 0.9。
+- `src/scheduled-post.ts`: rate limit チェック直後に「体験候補投稿ガチャ」を挿入。
+  - `EXPERIENCE_CANDIDATE_POST_PROBABILITY`（デフォルト0.10）で当選。
+  - 当選時: `pickExperienceCandidate` → `generateExperiencePost` → `createNote`（`generated_reason='experience_candidate'`）。
+  - 成功後: `experience_candidates.status` を `executed` に、`experience_logs` に昇格、`last_note_at` を更新。
+  - 候補0件の場合: `skip(reason: "no_experience_candidates")`。
+- `schema.ts` seed: `EXPERIENCE_CANDIDATE_POST_PROBABILITY = 0.10` 追加。
+- 既存テスト（`scheduled-post.test.ts`）の `rand()` 消費カウントを体験候補ガチャ分だけ調整。
+
+## 2026-05-04 Phase 6（rate limit 部分）: 投稿レート制限
+
+- `src/rate-limit.ts` 新規: `checkNotesPerHour` / `checkNotesPerDay` / `checkQuoteRenotesPerDay` を実装。posts テーブルの `posted_at` カウントによる判定。
+- `src/scheduled-post.ts`: 睡眠フロー直後に rate limit チェックを挿入。`NOTES_PER_HOUR`(5) / `NOTES_PER_DAY`(50) / `QUOTE_RENOTES_PER_DAY`(5) を `m_runtime_setting` から読む。超過時は `skip(reason: "rate_limit", scope: ...)`。
+- `srcx/test/rate-limit.test.ts` 新規: `checkNotesPerHour` / `checkNotesPerDay` / `checkQuoteRenotesPerDay` の単体テスト4件。
+

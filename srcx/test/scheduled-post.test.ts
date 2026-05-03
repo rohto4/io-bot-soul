@@ -133,8 +133,8 @@ describe("runScheduledPostDraw", () => {
       }
     );
 
-    // 1回目: TL観測ガチャを外す(0.9 >= 0.20), 2回目: 通常ノート確率テーブルで当てる(0.1 < 0.15)
-    const calls = [0.9, 0.1];
+    // rand()消費: 1=sleep_at計算, 2=体験候補ガチャ外れ(0.15>=0.10), 3=TL観測ガチャ外し(0.9>=0.20), 4=通常ノート確率テーブル当てる(0.1<0.15)
+    const calls = [0.5, 0.15, 0.9, 0.1];
     let ci = 0;
     await runScheduledPostDraw({
       db,
