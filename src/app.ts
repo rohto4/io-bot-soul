@@ -5,6 +5,7 @@ import { handleConsentReactions, handleFollowProbe, handleReplyProbe } from "./p
 import { loadRuntimeSettings, readIntegerSetting } from "./runtime-settings.js";
 import { runScheduledPostDraw } from "./scheduled-post.js";
 import { runExperienceScan } from "./experience-scan.js";
+import { runDailyCleanup } from "./daily-cleanup.js";
 
 type Clock = () => Date;
 
@@ -12,12 +13,14 @@ type StartIntervals = {
   pollIntervalMs?: number;
   postDrawIntervalMs?: number;
   experienceScanIntervalMs?: number;
+  dailyCleanupIntervalMs?: number;
 };
 
 export type BotApp = {
   pollOnce(): Promise<void>;
   drawPostOnce(): Promise<void>;
   experienceScanOnce(): Promise<void>;
+  dailyCleanupOnce(): Promise<void>;
   start(_testIntervals?: StartIntervals): () => void;
 };
 
@@ -110,6 +113,11 @@ export function createBotApp(options: {
     });
   }
 
+  async function dailyCleanupOnce(): Promise<void> {
+    const at = now().toISOString();
+    await runDailyCleanup({ logger: options.logger, at });
+  }
+
   function start(_testIntervals?: StartIntervals): () => void {
     let cleanup: (() => void) | null = null;
 
@@ -118,20 +126,25 @@ export function createBotApp(options: {
       let postDrawIntervalMs: number;
       let experienceScanIntervalMs: number;
 
+      let dailyCleanupIntervalMs: number;
+
       if (_testIntervals) {
         pollIntervalMs = _testIntervals.pollIntervalMs ?? 60000;
         postDrawIntervalMs = _testIntervals.postDrawIntervalMs ?? 300000;
         experienceScanIntervalMs = _testIntervals.experienceScanIntervalMs ?? 1200000;
+        dailyCleanupIntervalMs = _testIntervals.dailyCleanupIntervalMs ?? 86400000;
       } else {
         const runtimeSettings = await loadRuntimeSettings(options.db);
         pollIntervalMs = readIntegerSetting(runtimeSettings, "POLL_INTERVAL_SECONDS", 60) * 1000;
         postDrawIntervalMs = readIntegerSetting(runtimeSettings, "POST_DRAW_INTERVAL_SECONDS", 300) * 1000;
         experienceScanIntervalMs = readIntegerSetting(runtimeSettings, "EXPERIENCE_SCAN_INTERVAL_SECONDS", 1200) * 1000;
+        dailyCleanupIntervalMs = readIntegerSetting(runtimeSettings, "DAILY_CLEANUP_INTERVAL_SECONDS", 86400) * 1000;
       }
 
       let pollRunning = false;
       let postDrawRunning = false;
       let experienceScanRunning = false;
+      let dailyCleanupRunning = false;
 
       function runPoll(): void {
         if (pollRunning) {
@@ -178,18 +191,32 @@ export function createBotApp(options: {
           });
       }
 
+      function runDailyCleanupWrapper(): void {
+        if (dailyCleanupRunning) return;
+        dailyCleanupRunning = true;
+        void dailyCleanupOnce()
+          .catch((error: unknown) => {
+            options.logger.error("dailyCleanup.error", { error: String(error) });
+          })
+          .finally(() => {
+            dailyCleanupRunning = false;
+          });
+      }
+
       runPoll();
 
       const pollTimer = setInterval(runPoll, pollIntervalMs);
       const postDrawTimer = setInterval(runPostDraw, postDrawIntervalMs);
       const experienceScanTimer = setInterval(runExperienceScanWrapper, experienceScanIntervalMs);
+      const dailyCleanupTimer = setInterval(runDailyCleanupWrapper, dailyCleanupIntervalMs);
 
-      options.logger.info("bot.timers.configured", { pollIntervalMs, postDrawIntervalMs, experienceScanIntervalMs });
+      options.logger.info("bot.timers.configured", { pollIntervalMs, postDrawIntervalMs, experienceScanIntervalMs, dailyCleanupIntervalMs });
 
       cleanup = () => {
         clearInterval(pollTimer);
         clearInterval(postDrawTimer);
         clearInterval(experienceScanTimer);
+        clearInterval(dailyCleanupTimer);
       };
     })();
 
@@ -202,6 +229,7 @@ export function createBotApp(options: {
     pollOnce,
     drawPostOnce,
     experienceScanOnce,
+    dailyCleanupOnce,
     start
   };
 }

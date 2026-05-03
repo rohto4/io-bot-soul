@@ -300,6 +300,7 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
     ["TL_REFERENCE_PROBABILITY", "0.50", "number", "gacha", "Probability that a normal post will reference the timeline."],
     ["TL_VIBE_RATIO", "0.75", "number", "gacha", "Within TL references, ratio of vibe-style mentions."],
     ["DEBUG_STATUS", "true", "boolean", "debug", "Write generate-post prompt to data/debug/ when true."],
+    ["DAILY_CLEANUP_INTERVAL_SECONDS", "86400", "integer", "debug", "Interval in seconds for daily cleanup of debug files (default: 24h)."],
     ["POLL_INTERVAL_SECONDS", "60", "integer", "scheduling", "Polling interval in seconds."],
     ["POST_DRAW_INTERVAL_SECONDS", "300", "integer", "scheduling", "Post-draw interval in seconds."],
     ["EXPERIENCE_SCAN_INTERVAL_SECONDS", "1200", "integer", "scheduling", "Experience scan interval in seconds (20 min)."],
