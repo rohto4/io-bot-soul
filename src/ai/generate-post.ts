@@ -57,14 +57,14 @@ function buildUserMessage(options: {
   const jstHour = (new Date(at).getUTCHours() + 9) % 24;
   const lines: string[] = [`現在時刻: ${at}（JST目安 ${jstHour}時台）`];
 
-  // 常に: 直前パターンで多様性制約
+  // 常に: 直前投稿を全文表示して文体・構成・流れごと回避させる
   if (top3.length > 0) {
     lines.push("");
-    lines.push("## 直前の投稿パターン（これと被らない書き出し・締め方にすること）");
-    for (const post of top3) {
-      const firstLine = post.text.split("\n")[0] ?? "";
-      const lastLine = post.text.split("\n").filter(Boolean).at(-1) ?? "";
-      lines.push(`- 書き出し:「${firstLine.slice(0, 30)}」 / 締め:「${lastLine.slice(0, 30)}」`);
+    lines.push("## 直前の投稿（文体・構成・行数・締め方・フレーズすべて変えること）");
+    for (const post of top3.slice(0, 2)) {
+      lines.push(`[${post.posted_at.slice(0, 16)}]`);
+      lines.push(post.text.slice(0, 200));
+      lines.push("");
     }
 
     // 直近2件の締め方に特定フレーズが含まれていれば今回の禁止フレーズとして明示する
