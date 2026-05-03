@@ -266,6 +266,8 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
     ["TL_OBSERVATION_NOTE_COUNT", "20", "integer", "timeline", "Number of notes used for TL observation."],
     ["TL_OBSERVATION_POST_PROBABILITY", "0.20", "number", "timeline", "Probability to post TL observation."],
     ["QUOTE_RENOTE_PROBABILITY", "0.20", "number", "experience", "Probability to quote renote when using an experience source."],
+    ["QUOTE_RENOTE_TL_LIMIT", "100", "integer", "experience", "Number of home TL notes to fetch for quote RN candidate selection."],
+    ["QUOTE_RENOTE_RECENT_USER_EXCLUDE", "5", "integer", "experience", "Number of recently quoted users to exclude from next quote RN."],
     ["EMOTION_ASSET_DEFAULT_COOLDOWN_HOURS", "24", "integer", "asset", "Default cooldown hours for emotion assets."],
     ["AI_PRIMARY_PROVIDER", "chutes", "string", "ai", "Primary AI provider."],
     ["AI_FALLBACK_PROVIDER", "openai", "string", "ai", "Fallback AI provider."],
@@ -298,6 +300,9 @@ async function seedRuntimeSettings(db: DbClient, now: string): Promise<void> {
     ["TL_REFERENCE_PROBABILITY", "0.50", "number", "gacha", "Probability that a normal post will reference the timeline."],
     ["TL_VIBE_RATIO", "0.75", "number", "gacha", "Within TL references, ratio of vibe-style mentions."],
     ["DEBUG_STATUS", "true", "boolean", "debug", "Write generate-post prompt to data/debug/ when true."],
+    ["POLL_INTERVAL_SECONDS", "60", "integer", "scheduling", "Polling interval in seconds."],
+    ["POST_DRAW_INTERVAL_SECONDS", "300", "integer", "scheduling", "Post-draw interval in seconds."],
+    ["EXPERIENCE_SCAN_INTERVAL_SECONDS", "1200", "integer", "scheduling", "Experience scan interval in seconds (20 min)."],
   ];
 
   for (const [key, value, valueType, category, description] of settings) {

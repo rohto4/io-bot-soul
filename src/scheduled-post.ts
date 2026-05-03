@@ -16,7 +16,7 @@ import type { QuoteCandidate } from "./quote-pick.js";
 import { drawNoteHint } from "./note-hint.js";
 import type { NoteHint } from "./note-hint.js";
 
-type ScheduledPostClient = Pick<MisskeyClient, "createNote" | "getHomeTimeline" | "getUserNotes">;
+type ScheduledPostClient = Pick<MisskeyClient, "createNote" | "getHomeTimeline">;
 
 export type ScheduledPostDrawOptions = {
   db: DbClient;
