@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkNotesPerHour, checkNotesPerDay, checkQuoteRenotesPerDay } from "../../src/rate-limit.js";
+import { checkNotesPerHour, checkNotesPerDay, checkQuoteRenotesPerDay, checkUserTriggeredPer5Min } from "../../src/rate-limit.js";
 import { createTestDb } from "./test-db.js";
 
 describe("rate limit", () => {
@@ -84,5 +84,59 @@ describe("rate limit", () => {
 
     const hit2 = await checkQuoteRenotesPerDay(db, at, 5);
     expect(hit2).toBe(true);
+  });
+
+  it("checkUserTriggeredPer5Min returns false when under limit", async () => {
+    const db = await createTestDb();
+    const at = "2026-05-01T12:00:00.000Z";
+
+    // 4件のリプライ（5分以内）
+    for (let i = 0; i < 4; i++) {
+      await db.run(
+        `INSERT INTO reply_logs (target_note_id, target_user_id, replied_at, reason, status)
+         VALUES (@noteId, 'user-1', @repliedAt, 'stop', 'posted')`,
+        {
+          noteId: `note-${i}`,
+          repliedAt: new Date(new Date(at).getTime() - i * 60 * 1000).toISOString()
+        }
+      );
+    }
+
+    const hit = await checkUserTriggeredPer5Min(db, at, 5);
+    expect(hit).toBe(false);
+  });
+
+  it("checkUserTriggeredPer5Min returns true when at limit", async () => {
+    const db = await createTestDb();
+    const at = "2026-05-01T12:00:00.000Z";
+
+    for (let i = 0; i < 5; i++) {
+      await db.run(
+        `INSERT INTO reply_logs (target_note_id, target_user_id, replied_at, reason, status)
+         VALUES (@noteId, 'user-1', @repliedAt, 'stop', 'posted')`,
+        {
+          noteId: `note-${i}`,
+          repliedAt: new Date(new Date(at).getTime() - i * 60 * 1000).toISOString()
+        }
+      );
+    }
+
+    const hit = await checkUserTriggeredPer5Min(db, at, 5);
+    expect(hit).toBe(true);
+  });
+
+  it("checkUserTriggeredPer5Min ignores replies older than 5 minutes", async () => {
+    const db = await createTestDb();
+    const at = "2026-05-01T12:00:00.000Z";
+
+    // 6分前のリプライ（ウィンドウ外）
+    await db.run(
+      `INSERT INTO reply_logs (target_note_id, target_user_id, replied_at, reason, status)
+       VALUES ('note-old', 'user-1', @repliedAt, 'stop', 'posted')`,
+      { repliedAt: new Date(new Date(at).getTime() - 6 * 60 * 1000).toISOString() }
+    );
+
+    const hit = await checkUserTriggeredPer5Min(db, at, 1);
+    expect(hit).toBe(false);
   });
 });

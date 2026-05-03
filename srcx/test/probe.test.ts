@@ -345,4 +345,55 @@ describe("probe", () => {
       await db.get("SELECT user_id, username, consent_status FROM experience_source_consents")
     ).toEqual({ user_id: "u1", username: "alice", consent_status: "stopped" });
   });
+
+  it("skips reply handling when user_triggered_rate_limit is exceeded", async () => {
+    const db = await createTestDb();
+    const at = "2026-05-01T00:05:00.000Z";
+
+    // 5分以内に5件のリプライ済み（上限=5）
+    for (let i = 0; i < 5; i++) {
+      await db.run(
+        `INSERT INTO reply_logs (target_note_id, target_user_id, replied_at, reason, status)
+         VALUES (@noteId, 'user-x', @repliedAt, 'stop', 'posted')`,
+        {
+          noteId: `prev-note-${i}`,
+          repliedAt: new Date(new Date(at).getTime() - i * 30 * 1000).toISOString()
+        }
+      );
+    }
+
+    const client: MisskeyClient = {
+      getNotifications: vi.fn(async () => [
+        {
+          id: "n-reply",
+          type: "mention",
+          user: { id: "u1", username: "alice" },
+          note: { id: "note-1", text: "/stop", user: { id: "u1", username: "alice" } }
+        }
+      ]),
+      createNote: vi.fn(async () => ({ id: "reply-1" })),
+      createFollowing: vi.fn(),
+      deleteFollowing: vi.fn(),
+      getNoteReactions: vi.fn()
+    };
+    const log = logger();
+
+    await handleReplyProbe({
+      db,
+      client,
+      logger: log,
+      maxReplies: 1,
+      notificationFetchLimit: 20,
+      userTriggeredPer5MinLimit: 5,
+      at
+    });
+
+    // rate limit により getNotifications すら呼ばれない
+    expect(client.getNotifications).not.toHaveBeenCalled();
+    expect(client.createNote).not.toHaveBeenCalled();
+    expect(log.info).toHaveBeenCalledWith("poll.skip", {
+      at,
+      reason: "user_triggered_rate_limit"
+    });
+  });
 });

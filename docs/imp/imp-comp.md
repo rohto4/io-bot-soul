@@ -214,3 +214,24 @@
 - `src/scheduled-post.ts`: 睡眠フロー直後に rate limit チェックを挿入。`NOTES_PER_HOUR`(5) / `NOTES_PER_DAY`(50) / `QUOTE_RENOTES_PER_DAY`(5) を `m_runtime_setting` から読む。超過時は `skip(reason: "rate_limit", scope: ...)`。
 - `srcx/test/rate-limit.test.ts` 新規: `checkNotesPerHour` / `checkNotesPerDay` / `checkQuoteRenotesPerDay` の単体テスト4件。
 
+## 2026-05-04 Phase 5（一部）+ Phase 6 rate limit 完結
+
+### P5-1/P5-2 確認済み（実装済み）
+- `generate-post.ts` に `experience_logs` ランダムサンプル注入 + weight 段階制御が既に実装されていることを確認。
+
+### P5-4/P5-5: daily-cleanup DB バッチ追加
+- `daily-cleanup.ts` を大幅リファクタ。`db?: DbClient` を受け取るように変更。
+- `expireOldCandidates`: `status='pending'` かつ `expires_at < now` の `experience_candidates` を `expired` に更新。
+- `deleteOldSourceNotes`: `captured_at < 30日前` の `source_notes` を削除（デフォルト30日、オプション変更可能）。
+- `app.ts`: `dailyCleanupOnce` から `db` を渡すように変更。
+- `srcx/test/daily-cleanup.test.ts` 新規（3テスト）。
+
+### P6-3: probe rate limit
+- `rate-limit.ts` に `checkUserTriggeredPer5Min` 追加: `reply_logs.replied_at` の5分以内カウント。
+- `probe.ts` の `handleReplyProbe` に `userTriggeredPer5MinLimit?: number` オプション追加。超過時は `poll.skip(reason: "user_triggered_rate_limit")` を返して早期リターン。
+- `app.ts`: `USER_TRIGGERED_POSTS_PER_5MIN` を `handleReplyProbe` に渡すように変更。
+- `srcx/test/rate-limit.test.ts` に3テスト追加（合計7件）。
+- `srcx/test/probe.test.ts` にスキップケース1テスト追加（合計11件）。
+
+合計: 65件 / 65件通過。
+

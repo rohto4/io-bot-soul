@@ -30,3 +30,12 @@ export async function checkQuoteRenotesPerDay(db: DbClient, at: string, limit: n
   );
   return (row?.cnt ?? 0) >= limit;
 }
+
+export async function checkUserTriggeredPer5Min(db: DbClient, at: string, limit: number): Promise<boolean> {
+  const cutoff = getCutoffISO(at, 5);
+  const row = await db.get<{ cnt: number }>(
+    `SELECT COUNT(*) AS cnt FROM reply_logs WHERE replied_at > @cutoff AND status = 'posted'`,
+    { cutoff }
+  );
+  return (row?.cnt ?? 0) >= limit;
+}

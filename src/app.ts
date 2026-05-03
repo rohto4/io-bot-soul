@@ -63,6 +63,7 @@ export function createBotApp(options: {
       logger: options.logger,
       maxReplies: readIntegerSetting(runtimeSettings, "REPLY_PROBE_MAX_PER_POLL", 1),
       notificationFetchLimit,
+      userTriggeredPer5MinLimit: readIntegerSetting(runtimeSettings, "USER_TRIGGERED_POSTS_PER_5MIN", 5),
       at
     });
     await handleConsentReactions({
@@ -115,7 +116,7 @@ export function createBotApp(options: {
 
   async function dailyCleanupOnce(): Promise<void> {
     const at = now().toISOString();
-    await runDailyCleanup({ logger: options.logger, at });
+    await runDailyCleanup({ db: options.db, logger: options.logger, at });
   }
 
   function start(_testIntervals?: StartIntervals): () => void {

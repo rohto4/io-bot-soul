@@ -6,6 +6,7 @@ import type {
   MisskeyUserLite
 } from "./misskey/client.js";
 import type { Logger } from "./logger.js";
+import { checkUserTriggeredPer5Min } from "./rate-limit.js";
 
 const acceptedHeartReactions = new Set(["❤", "❤️"]);
 
@@ -48,8 +49,16 @@ export async function handleReplyProbe(options: {
   logger: Logger;
   maxReplies: number;
   notificationFetchLimit: number;
+  userTriggeredPer5MinLimit?: number;
   at: string;
 }): Promise<void> {
+  if (options.userTriggeredPer5MinLimit !== undefined) {
+    if (await checkUserTriggeredPer5Min(options.db, options.at, options.userTriggeredPer5MinLimit)) {
+      options.logger.info("poll.skip", { at: options.at, reason: "user_triggered_rate_limit" });
+      return;
+    }
+  }
+
   const notifications = await options.client.getNotifications({
     limit: options.notificationFetchLimit,
     includeTypes: ["mention", "reply"],

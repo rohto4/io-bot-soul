@@ -37,15 +37,11 @@
 
 ## Phase 5: 体験投稿と記憶化（experience_logs 本格活用）
 
-- [ ] **P5-1**: `src/ai/generate-post.ts` の `buildUserMessage` に `experience_logs` からのランダムサンプルを注入するロジックが既にあるか確認。ない場合は追加。
-  - `EXPERIENCE_MEMORY_ENABLED`, `EXPERIENCE_MEMORY_SAMPLE_COUNT`, `EXPERIENCE_MEMORY_PROMPT_WEIGHT` を参照。
-- [ ] **P5-2**: `generate-post.ts` のプロンプトに「以前〜〜した」という体験ログ参照フレームを追加。
-  - 例: `[以前の体験] 商店街で気になる店を見つけた / [重み: 50]` のような形式。
+- [x] **P5-1**: `generate-post.ts` に `experience_logs` 注入ロジック確認・実装済み。（実装済みを確認 2026-05-04）
+- [x] **P5-2**: `buildUserMessage` の体験ログ参照フレーム実装済み（weight 25/50/75 段階制御）。（実装済みを確認 2026-05-04）
 - [ ] **P5-3**: `EXPERIENCE_MEMORY_PROMPT_WEIGHT` の実際の効果を検証するためのテスト投稿（実機またはモック）。
-- [ ] **P5-4**: `experience_candidates` の `status='pending'` かつ `expires_at < now` のレコードを `expired` に更新するバッチ処理を作成。
-  - 実装先: `daily-cleanup.ts` または `experience-scan.ts` の末尾。
-- [ ] **P5-5**: `source_notes` の `captured_at` が30日以上前のレコードを定期削除するバッチを追加。
-  - `DAILY_CLEANUP_INTERVAL_SECONDS` と同じタイミングで実行。
+- [x] **P5-4**: `daily-cleanup.ts` に `expireOldCandidates` 追加。`status='pending'` かつ `expires_at < now` → `expired` に更新。（2026-05-04）
+- [x] **P5-5**: `daily-cleanup.ts` に `deleteOldSourceNotes` 追加。30日以上前の `source_notes` を削除。（2026-05-04）
 
 ---
 
@@ -55,8 +51,7 @@
 
 - [x] **P6-1**: 新規 `src/rate-limit.ts` — `checkNotesPerHour` / `checkNotesPerDay` / `checkQuoteRenotesPerDay` を実装。（2026-05-04）
 - [x] **P6-2**: `src/scheduled-post.ts` の睡眠フロー直後に rate limit チェックを挿入。（2026-05-04）
-- [ ] **P6-3**: `src/probe.ts` のリプライ処理前に `checkUserTriggeredPer5Min` を呼び出し。
-  - 超過時: `poll.skip` / `reason: "user_triggered_rate_limit"`
+- [x] **P6-3**: `rate-limit.ts` に `checkUserTriggeredPer5Min` 追加。`probe.ts` の `handleReplyProbe` 先頭でチェック。（2026-05-04）
 - [x] **P6-4**: 新規テスト `srcx/test/rate-limit.test.ts` — rate limit 判定の単体テスト。（2026-05-04）
 
 ### error backoff
