@@ -1,4 +1,4 @@
-# OpenCode / oh-my-openagent 調査結果 2026-05-01
+﻿# OpenCode / oh-my-openagent 調査結果 2026-05-01
 
 ## 名称移行
 
@@ -54,4 +54,5 @@
   - `opencode.jsonc.disabled-20260501-221707` に退避済み。
 - バックアップ、無効化済みファイル、node_modules 配下
   - 有効設定としては扱わない。
+
 

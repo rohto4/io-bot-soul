@@ -1,6 +1,13 @@
-# Guide Summary
+﻿# Guide Summary
 
+採用済みの運用手順の要約。
+
+- [運用設計ガイド](operations.md)
+  - 日常監視、DB確認、設定変更、緊急停止、復旧手順。
 - [Dockerローカル常駐ガイド](docker-local-run.md)
-  - ユーザーPC上でbotを常駐させるため、Docker Composeを採用する。常駐プロセスは毎分pollingで返信、フォロー案内、同意確認を担当する。
+  - Docker Composeでbotを常駐させるための手順とローカル運用ルール。
 - [スクリプト概要](script-overview.md)
-  - Docker常駐、5分投稿抽選、DB migration、将来の設定変更用スクリプトの役割分担を整理する。
+  - 常駐、定期実行、DB migration、将来の設定変更用スクリプトの役割分担。
+- [OpenCode設定配置手順](opencode/oc-active-init.md)
+  - OpenCode / oh-my-openagent / Chutes 用設定の配置手順。
+

@@ -1,4 +1,4 @@
-# Tech Stack
+﻿# Tech Stack
 
 注: ファイル名はユーザー指定に合わせて `teck-stack.md` とする。
 
@@ -267,3 +267,4 @@
 - AI client実装では、providerごとにtoken上限パラメータ名を切り替える。
 - `message.content` が空、`null`、JSON parse不能、または `finish_reason = length` の場合は、そのproviderの応答を失敗扱いにしてfallbackする。
 - `message.reasoning_content` はログや投稿文には使わない。
+

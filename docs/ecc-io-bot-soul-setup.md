@@ -1,4 +1,4 @@
-# ECC Setup Memo
+﻿# ECC Setup Memo
 
 ## 現在の扱い
 
@@ -39,3 +39,4 @@
 - `.codex/config.toml`
 - ツール別の大規模設定
 - 現時点の運用に不要なskill/command一式
+

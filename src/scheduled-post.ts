@@ -493,10 +493,6 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
     options.logger.info("scheduledPost.skip", { at: options.at, reason: "rate_limit", scope: "notes_per_day", limit: notesPerDayLimit });
     return;
   }
-  if (await checkQuoteRenotesPerDay(options.db, options.at, quotePerDayLimit)) {
-    options.logger.info("scheduledPost.skip", { at: options.at, reason: "rate_limit", scope: "quote_renotes_per_day", limit: quotePerDayLimit });
-    return;
-  }
 
   // ===== 体験候補投稿ガチャ =====
   const expCandidateProb = readNumberSetting(settings, "EXPERIENCE_CANDIDATE_POST_PROBABILITY", 0.10);
@@ -551,6 +547,11 @@ export async function runScheduledPostDraw(options: ScheduledPostDrawOptions): P
 
   if (draw.tag === "skip") {
     options.logger.info("scheduledPost.skip", { at: options.at, reason: draw.reason, ...draw.meta });
+    return;
+  }
+
+  if (draw.tag === "quote_rn" && await checkQuoteRenotesPerDay(options.db, options.at, quotePerDayLimit)) {
+    options.logger.info("scheduledPost.skip", { at: options.at, reason: "rate_limit", scope: "quote_renotes_per_day", limit: quotePerDayLimit });
     return;
   }
 

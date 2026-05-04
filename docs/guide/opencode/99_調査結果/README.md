@@ -1,4 +1,4 @@
-# OpenCode 設定ファイル
+﻿# OpenCode 設定ファイル
 
 OpenCode / oh-my-openagent / Chutes を動かすための設定ファイル一式です。
 新しい PJ への適用手順は [`oc-active-init.md`](../oc-active-init.md) を参照してください。
@@ -31,3 +31,4 @@ OpenCode / oh-my-openagent / Chutes を動かすための設定ファイル一�
 
 - [`investigation-20260501.md`](investigation-20260501.md) — 名称移行・初期検証
 - [`investigation-20260502.md`](investigation-20260502.md) — グローバル設定不動作の原因と修正
+

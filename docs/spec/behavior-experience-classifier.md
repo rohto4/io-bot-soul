@@ -1,4 +1,4 @@
-# 体験候補AI判定仕様
+﻿# 体験候補AI判定仕様
 
 ## 概要
 
@@ -84,7 +84,7 @@ import { classifyExperienceCandidate } from "./ai/classify-experience-candidate.
 
 ### source_note_id の仮ID（現状維持）
 
-現状の `tl_${options.at}_${saved}` の仮IDはそのまま維持する（adjust-tasks に課題として記録済み）。
+現状の `tl_${options.at}_${saved}` の仮IDはそのまま維持する（`docs/imp/imp-tasks.md` の `REF-4` に課題として記録済み）。
 
 ## 新規ファイル・変更ファイル一覧
 
@@ -92,3 +92,5 @@ import { classifyExperienceCandidate } from "./ai/classify-experience-candidate.
 |---|---|---|
 | `src/ai/classify-experience-candidate.ts` | 新規 | ゆるい体験候補安全判定 |
 | `src/experience-scan.ts` | 変更 | 新分類器に切り替え + expires_at 追加 |
+
+

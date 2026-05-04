@@ -1,4 +1,4 @@
-# スクリプト概要
+﻿# スクリプト概要
 
 このPJで動かす実行入口を、常駐、定期実行、管理用に分けて整理する。
 
@@ -105,6 +105,10 @@ secretはこの仕組みに載せない。
 ## 参照先
 
 - [Dockerローカル常駐ガイド](docker-local-run.md)
-- [投稿実行ルール](../spec/posting-runtime-rules.md)
-- [投稿内容ルール](../spec/posting-content-rules.md)
-- [DB schema](../spec/db-schema.md)
+- [投稿実行ルール](../spec/behavior-posting-runtime.md)
+- [投稿内容ルール](../spec/behavior-posting-content.md)
+- [DB schema](../spec/data-schema.md)
+
+
+
+

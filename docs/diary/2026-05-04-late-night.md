@@ -1,8 +1,8 @@
-# 2026-05-04 深夜セッション
+﻿# 2026-05-04 深夜セッション
 
 ## 実装概要
 
-今夜の `docs/imp/impl-tonight.md` に記載された3タスクを全て完了した。
+今夜の `docs/imp/imp-instructions-20260503.md` に記載された3タスクを全て完了した。
 
 ### タスク③: 体験候補AI判定（Phase 3.5）
 
@@ -52,7 +52,7 @@
 
 ### sleep_at 未設定時の自動計算について
 
-`impl-tonight.md` に記載の通り、sleep_at が未設定の場合はその場で計算してDB更新する方針とした。この結果、`rand()` が1回多く消費されるが、`scheduled-post.test.ts` の該当ケースでテスト値を調整して対応した。
+`imp-instructions-20260503.md` に記載の通り、sleep_at が未設定の場合はその場で計算してDB更新する方針とした。この結果、`rand()` が1回多く消費されるが、`scheduled-post.test.ts` の該当ケースでテスト値を調整して対応した。
 
 ### buildAiOptions に API key を含める判断
 
@@ -60,7 +60,7 @@
 
 ### 起床ポストの `generateText` モック対応
 
-`impl-tonight.md` では「options.generateText は既存テスト用モック。sleep 投稿のテストには別途追加してもよいが初期実装では省略可」とされたが、実装では `options.generateText` が指定されていれば起床時・就寝時にもそれを使う形にした。これにより既存テストモックの互換性は維持されている。
+`imp-instructions-20260503.md` では「options.generateText は既存テスト用モック。sleep 投稿のテストには別途追加してもよいが初期実装では省略可」とされたが、実装では `options.generateText` が指定されていれば起床時・就寝時にもそれを使う形にした。これにより既存テストモックの互換性は維持されている。
 
 ## 次にやるべきこと
 
@@ -68,3 +68,5 @@
 2. DB確認: `SELECT sleeping, sleep_at, wake_at FROM bot_state WHERE id=1;`
 3. ログ確認: `scheduledPost.oyasumi` / `scheduledPost.ohayou` / `scheduledPost.murmur` / `scheduledPost.skip`（reason: sleeping）
 4. `experience_candidates` に `expires_at` が入ることを確認
+
+

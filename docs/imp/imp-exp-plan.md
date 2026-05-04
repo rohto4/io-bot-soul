@@ -1,4 +1,4 @@
-# Experience Plan
+﻿# Experience Plan
 
 ## 目的
 
@@ -256,5 +256,8 @@ TLでおいしそうなもの食べてる人がいて、ちょっとうらやま
 ## 参照仕様
 
 - [Tech Stack](../spec/teck-stack.md)
-- [Memory DB](../spec/memory-db.md)
-- [Consent Experience Strategy](../spec/consent-experience-strategy.md)
+- [Memory DB](../spec/data-runtime-settings.md)
+- [Consent Experience Strategy](../spec/safety-release.md)
+
+
+

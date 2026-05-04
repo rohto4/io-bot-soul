@@ -1,4 +1,4 @@
-# 運用設定リファレンス
+﻿# 運用設定リファレンス
 
 このドキュメントは、botの動作を制御する設定値を人間が読める形でまとめたものです。
 設定には「環境変数（`.env.local`）」と「DBマスタ（`m_runtime_setting`）」の2種類があります。
@@ -304,6 +304,9 @@ docker compose exec bot psql $DATABASE_URL -c "SELECT setting_key, setting_value
 
 ## 関連設計書
 
-- `docs/spec/action-flow-v2.md` - 行動フローV2の詳細設計
-- `docs/spec/posting-runtime-rules.md` - 投稿判定フロー・安全弁の詳細
-- `docs/spec/posting-content-rules.md` - 投稿内容タイプ・AI設定の詳細
+- `docs/spec/behavior-action-flow.md` - 行動フローV2の詳細設計
+- `docs/spec/behavior-posting-runtime.md` - 投稿判定フロー・安全弁の詳細
+- `docs/spec/behavior-posting-content.md` - 投稿内容タイプ・AI設定の詳細
+
+
+

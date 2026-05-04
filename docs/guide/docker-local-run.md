@@ -1,4 +1,4 @@
-# Dockerローカル常駐ガイド
+﻿# Dockerローカル常駐ガイド
 
 ## 目的
 
@@ -133,3 +133,4 @@ ORDER BY category, setting_key;
 
 n8nはワークフロー管理には強いが、このPJではキャラクター記憶、投稿生成、安全判定、DB更新、Misskey API処理が密接に結びつく。
 初期実装ではDocker Compose上の単一botプロセスの方が、状態管理とテストが単純になる。
+

@@ -1,4 +1,4 @@
-# 運用設計ガイド
+﻿# 運用設計ガイド
 
 botの日常運用・緊急対応・設定変更・デプロイ手順をまとめる。
 
@@ -284,7 +284,11 @@ Docker Desktop の「起動時に実行」設定を確認。
 
 ## 関連ドキュメント
 
-- [`docs/spec/operation-settings.md`](../spec/operation-settings.md) — 設定値の全一覧・意味・調整方針
-- [`docs/spec/posting-runtime-rules.md`](../spec/posting-runtime-rules.md) — 投稿可否の判定フロー詳細
-- [`docs/spec/action-flow-v2.md`](../spec/action-flow-v2.md) — 行動ガチャのフロー設計
+- [`docs/spec/data-runtime-settings.md`](../spec/data-runtime-settings.md) — 設定値の全一覧・意味・調整方針
+- [`docs/spec/behavior-posting-runtime.md`](../spec/behavior-posting-runtime.md) — 投稿可否の判定フロー詳細
+- [`docs/spec/behavior-action-flow.md`](../spec/behavior-action-flow.md) — 行動ガチャのフロー設計
 - [`docs/imp/user-tasks.md`](../imp/user-tasks.md) — 次にやるべきタスク・確認事項
+
+
+
+

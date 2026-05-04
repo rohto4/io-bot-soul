@@ -1,4 +1,4 @@
-# DB Schema
+﻿# DB Schema
 
 初期DBはSQLiteで開始したが、Docker常駐運用で安定して状態を保持するため、Neon/Postgresへ移行する。
 
@@ -468,3 +468,4 @@ MVPでは `note_exp_history` を物理テーブルとして採用しない。
 ## 未決
 
 - safety判定をDB master中心にするか、コード定数中心にするか。
+

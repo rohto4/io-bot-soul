@@ -149,6 +149,47 @@ describe("runScheduledPostDraw", () => {
     expect(client.createNote).toHaveBeenCalledTimes(1);
   });
 
+  it("does not let the quote renote daily limit block normal posts", async () => {
+    const db = await createTestDb();
+    const logger = createLogger();
+    const client = {
+      createNote: vi.fn(async () => ({ id: "posted-note" })),
+      getHomeTimeline: vi.fn(async () => []),
+      getUserNotes: vi.fn(async () => [])
+    };
+
+    for (let i = 0; i < 5; i++) {
+      await db.run(
+        `
+        INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+        VALUES (@noteId, @postedAt, 'quote_renote', 'quote', 'public', 'quote_renote', @postedAt)
+        `,
+        {
+          noteId: `quote-${i}`,
+          postedAt: `2026-05-01T0${i}:00:00.000Z`
+        }
+      );
+    }
+
+    await runScheduledPostDraw({
+      db,
+      logger,
+      client,
+      at: "2026-05-01T12:00:00.000Z",
+      enabled: true,
+      random: () => 0.9,
+      generateText: async () => "生活ログ、テスト。"
+    });
+
+    expect(client.createNote).toHaveBeenCalledTimes(1);
+    expect(logger.info).not.toHaveBeenCalledWith("scheduledPost.skip", {
+      at: "2026-05-01T12:00:00.000Z",
+      reason: "rate_limit",
+      scope: "quote_renotes_per_day",
+      limit: 5
+    });
+  });
+
   it("uses runtime settings from DB for scheduled post probability", async () => {
     const db = await createTestDb();
     const logger = createLogger();

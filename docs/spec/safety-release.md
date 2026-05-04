@@ -1,4 +1,4 @@
-# Release Readiness
+﻿# Release Readiness
 
 ## 現在の判断（2026-05-02）
 
@@ -98,3 +98,4 @@
   - ユーザー操作によりリプライや公開投稿を行うBotは、レートリミットと不適切語フィルタが必要。
   - 連続した公開投稿でタイムラインを埋めないこと。
 - Misskey Bot docs: https://misskey-hub.net/ja/docs/for-developers/bot/
+

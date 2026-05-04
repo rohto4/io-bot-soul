@@ -1,4 +1,4 @@
-# 行動フロー V2（2026-05-03）
+﻿# 行動フロー V2（2026-05-03）
 
 ## 概要
 
@@ -245,7 +245,7 @@ VALUES
 | `src/quote-pick.ts` | `runTlScanPassive` を使うように変更（現状の `runTlScan` はno_tlには使わない） |
 | `src/app.ts` | 10分タイマー（Experience Scan）追加 |
 | `src/db/schema.ts` | 新設定値を `seedRuntimeSettings` に追加 |
-| `docs/spec/operation-settings.md` | 新確率表と設定値を反映 |
+| `docs/spec/data-runtime-settings.md` | 新確率表と設定値を反映 |
 
 ## 確認コマンド
 
@@ -264,5 +264,7 @@ docker compose exec bot sqlite3 /app/data/bot.db "SELECT setting_key, setting_va
 3. `src/ai/generate-post.ts`: TL参照モードと体験メモリ注入
 4. `src/scheduled-post.ts`: ガチャ構造リファクタ
 5. `src/app.ts`: 10分タイマー追加
-6. `docs/spec/operation-settings.md`: 更新
+6. `docs/spec/data-runtime-settings.md`: 更新
 7. ビルド・テスト
+
+

@@ -1,16 +1,56 @@
-# Spec
+﻿# Spec
 
-確定した仕様、要件、設計前提を置く。
+`docs/spec/` は、実装や運用の前提として**確定した仕様**だけを置く。
 
-## 主要ファイル
+## このPJでの分割方針
 
-- [ノートの性格ベース](base-personal.md)
-- [同意ベースの体験化戦略](consent-experience-strategy.md)
-- [SQLite初期スキーマ](db-schema.md)
-- [エモーション画像添付](emotion-assets.md)
-- [記憶DB方針](memory-db.md)
-- [投稿実行ルール](posting-runtime-rules.md)
-- [投稿内容ルール](posting-content-rules.md)
-- [リリース可否判断](release-readiness.md)
-- [仕様全体の要約](spec-summary.md)
+このPJは、一般的な大規模アプリではなく、misskey.io bot の「キャラクターの魂」と常駐運用を扱う。ソースコード量は比較的少ない一方で、仕様は次の軸に分かれる。
+
+- キャラクター人格・口調
+- botの行動抽選・投稿内容・睡眠
+- 体験候補、記憶、DB、runtime設定
+- 同意・安全・公開運用
+- 画像添付、技術スタック、旧フロー記録
+
+そのため、このPJでは「10ファイル以内」にこだわらず、**1ファイルの意味が1つに見えること**を優先する。目安として、1ファイルが300〜400行を大きく超える場合は、目次を足すより先に分割を検討する。
+
+別PJでは、ドメインやコード規模に合わせて別の構成にしてよい。共通ルールは「確定仕様は `docs/spec/` に置く」「ファイル名と中身の責務を一致させる」こと。
+
+## 置くもの
+
+- botの人格・投稿・返信・睡眠・記憶など、実装が従う仕様。
+- DB、設定値、外部API、運用上限など、コードと整合させる前提。
+- 安全・同意・公開運用ゲートなど、判断済みのルール。
+
+## 置かないもの
+
+- 候補案、比較中の案、未採用案 → `docs/candi-ref/`
+- 手順書、日常運用コマンド、復旧手順 → `docs/guide/`
+- 実装待ち、作業計画、完了記録 → `docs/imp/`
+- セッション記録 → `docs/diary/`
+
+## ファイル構成
+
+- [仕様概要](overview.md)
+- [キャラクター仕様](base-personal.md)
+- [行動フロー仕様](behavior-action-flow.md)
+- [投稿実行仕様](behavior-posting-runtime.md)
+- [投稿内容仕様](behavior-posting-content.md)
+- [睡眠システム仕様](behavior-sleep.md)
+- [体験候補AI判定仕様](behavior-experience-classifier.md)
+- [DBスキーマ仕様](data-schema.md)
+- [runtime設定仕様](data-runtime-settings.md)
+- [記憶DB仕様](data-memory.md)
+- [同意・体験化仕様](safety-consent.md)
+- [公開運用・リリース判断仕様](safety-release.md)
+- [エモーション画像仕様](emotion-assets.md)
 - [技術スタック判断](teck-stack.md)
+- [旧フロー記録](legacy-flows.md)
+
+## 運用
+
+- 細かいファイルを増やす前に、既存テーマに収まるかを確認する。
+- ただし、異なる責務を無理に統合して巨大化させない。
+- 実装が仕様とズレた場合は、コード修正か仕様更新のどちらを正とするか明記してから更新する。
+
+

@@ -1,4 +1,4 @@
-# Emotion Assets
+﻿# Emotion Assets
 
 ## 目的
 
@@ -109,3 +109,4 @@ AIに任せないもの:
 - GIFを通常投稿で使う頻度。
 - Header画像をプロフィール/ヘッダー専用にするか、投稿にも使うか。
 - Misskey Driveへの事前upload方式にするか、投稿時upload方式にするか。
+

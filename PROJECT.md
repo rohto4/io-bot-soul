@@ -6,27 +6,13 @@ misskey.io に bot としてアカウントを作成・運用するための、�
 
 ここでいう「魂」は、単なるプロンプトではなく、botの人格・価値観・話し方・投稿方針・返信方針・禁止事項・運用判断を含む設計資産として扱う。
 
-## 現在のフェーズ（2026-05-02時点）
+## 作業入口
 
-**Phase 3 完了・実稼働中。投稿品質チューニング済み。**
+- ユーザー確認・操作 → [`docs/imp/user-tasks.md`](docs/imp/user-tasks.md)
+- ユーザー判断待ち → [`docs/imp/user-judge.md`](docs/imp/user-judge.md)
+- 実装待ち → [`docs/imp/imp-tasks.md`](docs/imp/imp-tasks.md)
 
-- Node.js/TypeScript + Docker Compose でローカル常駐稼働中。
-- 毎分polling: フォロー返し（DM案内）、リプライ、`/stop`・`/unfollow`、❤同意確認。
-- 5分ごとの行動ガチャ（3フェーズ構造）:
-  - ⑴ガチャ: TL観測（20%）→ 引用RN（20%）or TL観測テキスト / 通常ノート（80%）
-  - ⑵取得: Misskey API + AI安全分類
-  - ⑶AI生成・投稿（`posts.kind = normal/tl_observation/quote_renote`）
-- 投稿生成の多様性制御:
-  - 記憶深度ガチャ: normal 90% / reminisce 5% / reference 5%
-  - お題（20種）× 口調（6種）× 文体パターン（4種）のガチャ
-  - 引用RN・TL観測も記憶に含め、引用RNは `experience_logs` に記録
-- beta-test1モード: `m_runtime_setting.BETA_TEST1_ENABLED` で即時切り替え可能
-
-**次セッションの最優先タスク → [`docs/imp/user-tasks.md`](docs/imp/user-tasks.md) を参照。**
-
-主な積み残し:
-- Phase 4: 体験候補の蓄積フロー（`experience_candidates`）
-- NoteHintのDBマスタ移行・時間帯重みづけ（Phase 2追加）
+`imp-*` / `user-*` の運用ルールは [`AGENTS.md`](AGENTS.md) を正とする。
 
 ## 主な機能・成果物
 
@@ -40,9 +26,9 @@ misskey.io に bot としてアカウントを作成・運用するための、�
 
 1. `AGENTS.md`: agent共通の最上位ルール
 2. `PROJECT.md`: PJ固有の目的、構成、運用方針
-3. `docs/guide/`: 採用済みガイド、判断基準
-4. `docs/spec/`: 確定仕様、要件、設計前提
-5. `docs/candi-ref/`: 候補、調査、比較、未採用案
+3. `docs/guide/`: 採用済みの運用手順・復旧手順・作業ガイド
+4. `docs/spec/`: 実装や運用の前提として確定した仕様
+5. `docs/candi-ref/`: 候補案、比較中の案、未採用案、調査メモ
 6. `docs/imp/`: 作業計画、実装メモ、完了記録
 7. `docs/diary/`: セッション記録
 8. `docs/setting/`: 初期化とテンプレート
@@ -76,8 +62,9 @@ misskey.io に bot としてアカウントを作成・運用するための、�
 
 ## 運用ルール
 
-- 採用済みルールは `docs/guide/` または `docs/spec/` に移す。
-- 未確定の案、比較、調査は `docs/candi-ref/` に置く。
+- 採用済みの運用手順は `docs/guide/` に移す。
+- 確定仕様、要件、設計前提は `docs/spec/` に移す。
+- 未確定の案、比較、調査、未採用案は `docs/candi-ref/` に置く。
 - 一時メモは `docs/memo.md` に置いてよいが、確定したら適切な場所へ移す。
 - botの人格・発話・投稿方針に関する決定は、可能な限り理由も残す。
 - misskey.io の最新仕様や規約に依存する内容は、必要時に公式情報を確認する。

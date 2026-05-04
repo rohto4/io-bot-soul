@@ -1,4 +1,4 @@
-# 実装指示書（Codex向け）
+﻿# 実装指示書（Codex向け）
 
 作成日: 2026-05-03
 
@@ -61,7 +61,7 @@ seedRuntimeSettings に追加:
 
 ### 参照ドキュメント
 
-`docs/spec/sleep-system.md` を必読のこと。
+`docs/spec/behavior-sleep.md` を必読のこと。
 
 ### 新規ファイル 1: `src/sleep-schedule.ts`
 
@@ -134,7 +134,7 @@ export function computeNextWakeAt(settings: RuntimeSettings, now: Date, rand: ()
 - `buildCharacterSystemPrompt` を `character-spec.ts` からインポート
 - `callAiWithFallback` を `chat-api.ts` からインポート
 - 3関数を実装: `generateOyasumiPost`, `generateOhayouPost`, `generateMurmurPost`
-- 各関数のプロンプト内容は `docs/spec/sleep-system.md` の「AI生成プロンプト仕様」参照
+- 各関数のプロンプト内容は `docs/spec/behavior-sleep.md` の「AI生成プロンプト仕様」参照
 - maxTokens: 300, temperature: 0.9
 - 引数: `{ settings, at, chutesApiKey, openaiApiKey, logger }`
 
@@ -283,12 +283,12 @@ if (sleepAt && now >= sleepAt) {
 
 ### 参照ドキュメント
 
-`docs/spec/experience-candidate-classifier.md` を必読のこと。
+`docs/spec/behavior-sleep.md` を必読のこと。
 
 ### 新規ファイル: `src/ai/classify-experience-candidate.ts`
 
 `classify-quote-safety.ts` をベースに以下の変更:
-- SYSTEM_PROMPT を experience-candidate-classifier.md 記載の内容に変更
+- SYSTEM_PROMPT を behavior-experience-classifier.md 記載の内容に変更
 - 関数名: `classifyExperienceCandidate`
 - 引数・返値: `classifyQuoteSafety` と同じ型
 - maxTokens: 5, temperature: 0.0, 失敗時 NG扱い（既存と同じ）
@@ -349,3 +349,8 @@ await options.db.run(
 1. タスク③（最も小さい）
 2. タスク①（小さい）
 3. タスク②（最も大きい・複雑）
+
+
+
+
+

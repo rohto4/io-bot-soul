@@ -1,4 +1,4 @@
-# Docs Index
+﻿# Docs Index
 
 ## 配置
 
@@ -13,3 +13,4 @@
 
 - `ecc-io-bot-soul-setup.md`: ECC取り込み状況と運用メモ
 - `memo.md`: 一時メモ。確定事項は適切なフォルダへ移す。
+

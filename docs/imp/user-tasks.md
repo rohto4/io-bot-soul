@@ -1,133 +1,189 @@
-# User Tasks
+﻿# User Tasks
 
-ユーザーが実際に消化する作業と、作業後に見る確認事項を分ける。
+このファイルは、ユーザーが実際に確認・操作する作業だけを置く。
 
-## 直近の確認タスク（action-flow-v2 反映後）
+- 判断待ちは `user-judge.md` に置く。
+- 実装状況は `imp-tasks.md` に置く。
+- 完了した実装作業の記録は `imp-comp.md` に置く。
 
-`docker compose up -d --build` は 2026-05-03 に実施済み。
+**最終更新**: 2026-05-04
 
-反映後の動作確認:
+---
+
+## 直近の実機確認
+
+### 5分ごとの投稿抽選を見る
+
+毎5分tickと投稿・skip理由を見る:
+
+```bash
+docker compose logs -f bot | grep -E '"message":"(postDraw\.tick|scheduledPost\.skip|scheduledPost\.action|scheduledPost\.posted|quoteRenote\.posted|scheduledPost\.experienceCandidate)"'
 ```
-docker compose logs -f bot | grep -E "postDraw|quoteRenote|no_tl|tl_vibe|tl_mention|experienceScan"
+
+当たり投稿だけを見る:
+
+```bash
+docker compose logs -f bot | grep -E '"message":"(scheduledPost\.posted|quoteRenote\.posted|scheduledPost\.experienceCandidate|scheduledPost\.ohayou|scheduledPost\.oyasumi|scheduledPost\.murmur)"'
 ```
 
-- `postDraw.tick` が5分ごとに出ていること
-- `experienceScan.tick` が10分ごとに出ていること
-- `generated_reason` に `no_tl` / `tl_vibe` / `tl_mention` / `quote_renote` が出ていること
+### 体験候補スキャンを見る
 
-## 次フェーズ判断タスク
+```bash
+docker compose logs -f bot | grep -E '"message":"(experienceScan\.tick|experienceScan\.saved|experienceScan\.skip|experienceCandidate\.classified)"'
+```
 
-- **投稿多様性の確認**: 文体パターン・お題・口調のガチャが機能しているか実際のノートで確認。同じ構成が続くようなら `note-hint.ts` の4パターンを増やすか調整する。
-- **引用RN実績確認**: `experience_logs` に引用RNのレコードが蓄積されているか確認する。
-  ```sql
-  SELECT experience_type, summary, occurred_at FROM experience_logs ORDER BY occurred_at DESC LIMIT 10;
-  ```
-- **beta-test1テスト**: テスター募集前に `BETA_TEST1_ENABLED=true` で動作を手動確認する。
-- **Phase 4着手判断**: `experience_scan.ts` の土台（TL→AI安全判定→`experience_candidates` 保存）は実装済み。Phase 4本体（候補から通常ノートとして投稿するフロー）の実装タイミングをユーザーが判断する。
+### エラーだけを見る
 
-## DB確認コマンド集
+```bash
+docker compose logs -f bot | grep -E '"level":"error"|error|Error|FAILED'
+```
+
+---
+
+## DB確認
+
+実稼働DBは `DATABASE_PROVIDER=postgres` のため、SQLiteではなくPostgres側を見る。
+
+### 現在の投稿上限
 
 ```sql
--- 投稿種別の分布（v2確認：no_tl/tl_vibe/tl_mention/quote_renoteの割合）
-SELECT generated_reason, COUNT(*) AS cnt
-FROM posts
-WHERE kind IN ('normal', 'quote_renote')
-GROUP BY generated_reason
-ORDER BY cnt DESC;
+SELECT setting_key, setting_value
+FROM m_runtime_setting
+WHERE setting_key IN ('NOTES_PER_DAY','NOTES_PER_HOUR','QUOTE_RENOTES_PER_DAY')
+ORDER BY setting_key;
+```
 
--- 体験候補の蓄積状況
+### 直近24時間の投稿数
+
+```sql
+SELECT
+  COUNT(*) FILTER (WHERE posted_at::timestamptz > now() - interval '1 hour') AS notes_1h,
+  COUNT(*) FILTER (WHERE posted_at::timestamptz > now() - interval '24 hours') AS notes_24h,
+  COUNT(*) FILTER (WHERE kind = 'quote_renote' AND posted_at::timestamptz > now() - interval '24 hours') AS quote_24h
+FROM posts;
+```
+
+### 投稿種別の分布
+
+```sql
+SELECT kind, generated_reason, COUNT(*) AS cnt
+FROM posts
+WHERE posted_at::timestamptz > now() - interval '24 hours'
+GROUP BY kind, generated_reason
+ORDER BY cnt DESC;
+```
+
+### 直近投稿
+
+```sql
+SELECT note_id, posted_at, kind, generated_reason
+FROM posts
+ORDER BY posted_at DESC
+LIMIT 10;
+```
+
+### bot状態
+
+```sql
+SELECT last_note_at, sleeping, sleep_at, wake_at, ai_failure_streak, ai_backoff_until, updated_at
+FROM bot_state
+WHERE id = 1;
+```
+
+### 体験候補の蓄積状況
+
+```sql
 SELECT candidate_type, status, COUNT(*) AS cnt
 FROM experience_candidates
 GROUP BY candidate_type, status;
+```
 
--- 引用RN体験ログ
+### 引用RN体験ログ
+
+```sql
 SELECT experience_type, summary, occurred_at
 FROM experience_logs
-ORDER BY occurred_at DESC LIMIT 10;
-
--- 許可済みユーザー一覧
-SELECT user_id, username, consent_status, consented_at
-FROM experience_source_consents
-WHERE consent_status = 'consented';
-
--- source_notes テーブルのサイズ確認（定期的に）
-SELECT COUNT(*) AS total,
-       MIN(captured_at) AS oldest,
-       MAX(captured_at) AS newest
-FROM source_notes;
-
--- 現在の行動ガチャ設定値
-SELECT setting_key, setting_value
-FROM m_runtime_setting
-WHERE category IN ('gacha', 'beta', 'experience_memory', 'timeline')
-ORDER BY category, setting_key;
+ORDER BY occurred_at DESC
+LIMIT 10;
 ```
 
-## Beta-Test1 モード切り替え
+---
 
-DBマスタを更新してモードを切り替える。再起動不要（最大5分で反映）。
+## 設定変更
+
+DBマスタの変更は再起動不要。最大5分、次のtickから反映される。
+
+### beta-test1
 
 ```sql
--- beta-test1 有効化（引用RN 40%、通常ノート経過時間5倍）
-UPDATE m_runtime_setting SET setting_value = 'true',  updated_at = datetime('now') WHERE setting_key = 'BETA_TEST1_ENABLED';
+-- 有効化
+UPDATE m_runtime_setting
+SET setting_value = 'true', updated_at = now()
+WHERE setting_key = 'BETA_TEST1_ENABLED';
 
--- beta-test1 無効化（通常モードに戻す）
-UPDATE m_runtime_setting SET setting_value = 'false', updated_at = datetime('now') WHERE setting_key = 'BETA_TEST1_ENABLED';
+-- 無効化
+UPDATE m_runtime_setting
+SET setting_value = 'false', updated_at = now()
+WHERE setting_key = 'BETA_TEST1_ENABLED';
 ```
 
-**beta-test1モードの確率（v2）:**
-- 引用RN: 40%（通常モードの2倍）
-- 通常ノートの経過時間判定: 実経過時間を5倍として計算（30分経過 → 150分相当で判定）
+確認:
 
-確認: `docker compose logs -f bot | grep betaTest1`
+```bash
+docker compose logs -f bot | grep betaTest1
+```
 
-## 確率の一時調整
-
-再起動不要。変更後、次の5分tickから反映。
+### 確率の一時調整
 
 ```sql
--- 引用RN確率を上げる（例: 50%に）
-UPDATE m_runtime_setting SET setting_value = '0.50', updated_at = datetime('now') WHERE setting_key = 'QUOTE_RENOTE_PROBABILITY';
+-- 引用RN確率を上げる
+UPDATE m_runtime_setting
+SET setting_value = '0.50', updated_at = now()
+WHERE setting_key = 'QUOTE_RENOTE_PROBABILITY';
 
--- TL参照確率を上げる（例: 80%に）
-UPDATE m_runtime_setting SET setting_value = '0.80', updated_at = datetime('now') WHERE setting_key = 'TL_REFERENCE_PROBABILITY';
+-- TL参照確率を上げる
+UPDATE m_runtime_setting
+SET setting_value = '0.80', updated_at = now()
+WHERE setting_key = 'TL_REFERENCE_PROBABILITY';
 
--- 通常モードに戻す
-UPDATE m_runtime_setting SET setting_value = '0.20', updated_at = datetime('now') WHERE setting_key = 'QUOTE_RENOTE_PROBABILITY';
-UPDATE m_runtime_setting SET setting_value = '0.50', updated_at = datetime('now') WHERE setting_key = 'TL_REFERENCE_PROBABILITY';
+-- 通常値へ戻す
+UPDATE m_runtime_setting
+SET setting_value = '0.20', updated_at = now()
+WHERE setting_key = 'QUOTE_RENOTE_PROBABILITY';
+
+UPDATE m_runtime_setting
+SET setting_value = '0.50', updated_at = now()
+WHERE setting_key = 'TL_REFERENCE_PROBABILITY';
 ```
 
-**v2のガチャ確率キー:**
+### 投稿上限の一時調整
 
-| 設定キー | 初期値 | 意味 |
-|---|---|---|
-| `QUOTE_RENOTE_PROBABILITY` | 0.20 | 5分tickで引用RNガチャに入る確率（独立） |
-| `TL_REFERENCE_PROBABILITY` | 0.50 | 通常ノート内でTLを参照する確率 |
-| `TL_VIBE_RATIO` | 0.75 | TL参照時の雰囲気言及の比率（残り25%が特定言及） |
+```sql
+UPDATE m_runtime_setting
+SET setting_value = '100', updated_at = now()
+WHERE setting_key = 'NOTES_PER_DAY';
+```
 
-## Docker常駐確認事項
+---
 
-- `poll.tick` が毎分継続している。
-- `postDraw.tick` が5分ごとに出ている。
-- `experienceScan.tick` が10分ごとに出ている。
-- `scheduledPost.posted` / `quoteRenote.posted` が出ている（または適切なskip理由）。
-- `generated_reason` に `no_tl` / `tl_vibe` / `tl_mention` が混在している（偏り確認）。
-- `generatePost.memoryDepth` で depth 分布を確認（normal が9割程度）。
-- リプライ・`/stop`・`/unfollow` の実機挙動が維持されている。
-- ❤リアクションが `experience_source_consents` に反映される。
+## 実機チェックリスト
 
-## AI設定の扱い
+- [ ] `poll.tick` が毎分継続している。
+- [ ] `postDraw.tick` が5分ごとに出ている。
+- [ ] `experienceScan.tick` が設定間隔ごとに出ている。
+- [ ] `scheduledPost.posted` / `quoteRenote.posted` / `scheduledPost.experienceCandidate` のいずれか、または妥当なskip理由が出ている。
+- [ ] `generated_reason` に `no_tl` / `tl_vibe` / `tl_mention` / `quote_renote` が混在している。
+- [ ] `generatePost.memoryDepth` で記憶深度分布を確認できる。
+- [ ] `generatePost.experienceMemory` が出て、体験ログがプロンプトに含まれている。
+- [ ] `experience_candidates` にpendingまたはexecutedのデータが蓄積される。
+- [ ] `scheduledPost.oyasumi` / `scheduledPost.ohayou` / `scheduledPost.murmur` が睡眠スケジュールに沿って出る。
+- [ ] リプライ、`/stop`、`/unfollow` の実機挙動が維持されている。
+- [ ] ❤リアクションが `experience_source_consents` に反映される。
 
-- AI secretは `CHUTES_API_KEY` と `OPENAI_API_KEY` のみ `.env.local` に置く。
-- 確率・モデルID・タイムアウトなどの非secret設定は `m_runtime_setting` で管理する。
-- 設定変更後の再起動は不要。最大5分（次のtick）で反映される。
+---
 
-## P1以降として後から対応してよいもの
+## 注意
 
-- Phase 4: 体験候補からの通常ノート投稿フロー（`experience_candidates` → 投稿 → `experience_logs` 昇格）。
-- Phase 5: 体験投稿と記憶化（`experience_logs` 本格活用・`EXPERIENCE_MEMORY_PROMPT_WEIGHT` 調整）。
-- Phase 6: rate limit・error backoff・AI日次上限（`NOTES_PER_HOUR` / `NOTES_PER_DAY` の実装）。
-- Phase 7: エモーション画像添付。
-- Phase 2追加: NoteHintのDBマスタ移行・時間帯重みづけ・連続カテゴリ回避。
-- AI設定GUI（管理画面）。
-- おはよう / おやすみ / 寝言の確率設計。
+- secret、token、Cookie、未公開の認証情報をログやドキュメントに残さない。
+- 公開投稿の確認では、misskey.io の規約、API制限、公開SNSでの誤解・迷惑行為・個人情報・権利侵害のリスクを優先して見る。
+

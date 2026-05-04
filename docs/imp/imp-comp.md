@@ -1,4 +1,4 @@
-# Implementation Complete
+﻿# Implementation Complete
 
 ## 2026-04-29 初期化
 
@@ -108,7 +108,7 @@
 - `scheduled-post.ts` を「⑴ガチャ（random/DB読み取り）→ ⑵取得（Misskey API + AI安全分類）→ ⑶AI生成・投稿」の3フェーズ構造に全面書き換え。
 - TL観測ガチャが当たった場合は通常ノートへ絶対に落ちない（旧設計の fallthrough を削除）。
 - `too_few_summaries` / TL obs AI失敗 → skip（通常ノートにならない）。
-- `docs/spec/action-flow.md` に Mermaid で全体フローを記録。
+- `docs/spec/legacy-flows.md` に Mermaid で全体フローを記録。
 
 ## 2026-05-02 beta-test1モード
 
@@ -234,4 +234,30 @@
 - `srcx/test/probe.test.ts` にスキップケース1テスト追加（合計11件）。
 
 合計: 65件 / 65件通過。
+
+## 2026-05-04 rate limit 修正 + imp/user ドキュメント整理
+
+### rate limit 修正
+
+- `QUOTE_RENOTES_PER_DAY` が上限到達時に通常ノートまで止めていた問題を修正。
+- `scheduled-post.ts` の引用RN日次上限チェックを、行動ガチャ後の `draw.tag === "quote_rn"` ルート内へ移動。
+- `srcx/test/scheduled-post.test.ts` に、引用RN上限超過中でも通常ノートは投稿できる回帰テストを追加。
+- `Dockerfile` に `sqlite3` CLI を追加。
+
+### ドキュメント整理
+
+- `imp-wait.md` を廃止し、実装待ちは `imp-tasks.md` に移行。
+- ユーザー判断待ちは新規 `user-judge.md` に分離。
+- ユーザー確認・運用操作は `user-tasks.md` に整理。
+- `exp-plan.md` を `imp-exp-plan.md` に改名。
+- `impl-tonight.md` を `imp-instructions-20260503.md` に改名。
+- `adjust-tasks.md` / `tasks-now.md` は内容を `imp-tasks.md` / `user-judge.md` / `user-tasks.md` に統合して削除。
+- `docs/imp/README.md`, `AGENTS.md`, `PROJECT.md` の読み込み先を現行構成へ更新。
+
+### 検証
+
+- `npm test`: 69件通過。
+- `npm run build`: 成功。
+- `docker compose up -d --build`: 成功。
+
 

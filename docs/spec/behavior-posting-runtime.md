@@ -1,4 +1,4 @@
-# 投稿実行ルール
+﻿# 投稿実行ルール
 
 botが投稿するかどうかを判断するための、時間、制約、安全スイッチ、調整箇所をまとめる。
 
@@ -156,4 +156,6 @@ WHERE setting_key = 'BETA_TEST1_ENABLED';
 ```
 
 切り替えは再起動不要。最大5分（post-draw interval）で反映される。
-詳細は [`beta-test1.md`](beta-test1.md) を参照。
+詳細は [行動フロー仕様](behavior-action-flow.md) を参照。
+
+

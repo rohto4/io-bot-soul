@@ -1,4 +1,4 @@
-# OpenCode / oh-my-openagent 不動作 — 調査・原因・対応 2026-05-02
+﻿# OpenCode / oh-my-openagent 不動作 — 調査・原因・対応 2026-05-02
 
 ## 症状
 
@@ -179,3 +179,4 @@ plugin_origins    : scope=local (PJローカルの .opencode/opencode.json が�
 - `CHUTES_API_KEY` を更新した場合は、Windowsレジストリ (`HKCU:\Environment`) の値も更新すること。
 - 新しい PJ で Chutes + oh-my-openagent を使う場合、グローバル設定が自動で効くため追加作業は不要。カスタムエージェント定義 (`oh-my-openagent.jsonc`) だけ配置すればよい。
 - `oh-my-opencode doctor` はグローバル設定の plugin エントリを見るが、`opencode debug config` の `plugin_origins` が正しければ実動作に問題はない。
+

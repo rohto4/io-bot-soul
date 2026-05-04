@@ -1,4 +1,4 @@
-# Consent Experience Strategy
+﻿# Consent Experience Strategy
 
 ## 目的
 
@@ -173,3 +173,4 @@ Misskeyのリアクション機能には、投稿時に受け付けるリアク�
 - Misskey Reactions: https://misskey-hub.net/en/docs/for-users/features/reaction/
 - misskey.io `notes/create`: https://api-doc.misskey.io/api-7254018
 - misskey.io API docs: https://api-doc.misskey.io/
+

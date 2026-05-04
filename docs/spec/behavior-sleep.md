@@ -1,4 +1,4 @@
-# 睡眠システム仕様
+﻿# 睡眠システム仕様
 
 ## 概要
 
@@ -203,3 +203,4 @@ runScheduledPostDraw(options):
 | `src/ai/generate-sleep-post.ts` | 新規 | generateOyasumiPost / generateOhayouPost / generateMurmurPost |
 | `src/scheduled-post.ts` | 変更 | sleep フロー追加（[1][2] の挿入） |
 | `src/db/schema.ts` | 変更 | 16 設定値を seed に追加 |
+

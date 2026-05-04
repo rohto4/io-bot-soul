@@ -1,4 +1,4 @@
-# OpenCode 設定 自動配置マニュアル
+﻿# OpenCode 設定 自動配置マニュアル
 
 このファイルは、新しい PJ で OpenCode / oh-my-openagent / Chutes を動かすための AI 向け手順書です。
 セットアップは **Phase 1（全マシン一度だけ）** と **Phase 2（PJ ごと）** の 2 段階です。
@@ -192,3 +192,4 @@ Chutes が失敗した場合、各エージェントの `fallback_models` に設
 | `plugin_origins` に oh-my-openagent が出ない | グローバル `opencode.json` に `"plugin"` キーがあるか確認する。 |
 | `oh-my-opencode doctor` でエラーが出る | グローバル設定を参照しているため。`opencode debug config` で `scope=global` が出ていれば動作上は問題ない。 |
 | 別マシンで使う場合 | Phase 1 からやり直す。`CHUTES_API_KEY` はそのマシンで別途登録が必要。 |
+

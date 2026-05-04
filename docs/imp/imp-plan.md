@@ -1,8 +1,8 @@
-# Implementation Plan
+﻿# Implementation Plan
 
 ## 設計済み
 
-- `exp-plan.md`: フォロワー同意、TL観測、体験候補、体験ログ、30分投稿を含む疑似生活体験の実装計画。
+- `imp-exp-plan.md`: フォロワー同意、TL観測、体験候補、体験ログ、30分投稿を含む疑似生活体験の実装計画。
 - `imp-judge-ai.md`: AI判定とロジック判定の境界。
 - `emotion-assets.md`: 投稿へのエモーション画像添付仕様。
 
@@ -54,7 +54,7 @@
 
 - `MEMORY_DEPTH_REFERENCE_RATE` / `MEMORY_DEPTH_REMINISCE_RATE` を `m_runtime_setting` に移行。
 - `drawMemoryDepth` が settings を受け取り、DB値を使うように変更。
-- 実装詳細: `docs/imp/impl-tonight.md` タスク①
+- 実装詳細: `docs/imp/imp-instructions-20260503.md` タスク①
 
 ### Phase 2.6: 睡眠システム
 
@@ -62,16 +62,16 @@
 - `bot_state.sleeping` / `sleep_at` / `wake_at` で状態管理。
 - 睡眠中は通常投稿停止 → 起床ガチャ・寝言ガチャに切り替え。
 - おやすみ・おはよう・寝言の AI 生成投稿。
-- 仕様: `docs/spec/sleep-system.md`
-- 実装詳細: `docs/imp/impl-tonight.md` タスク②
+- 仕様: `docs/spec/behavior-sleep.md`
+- 実装詳細: `docs/imp/imp-instructions-20260503.md` タスク②
 
 ### Phase 3.5: 体験候補専用AI判定
 
 - `classify-experience-candidate.ts` を新規作成（引用なし前提のゆるい判定）。
 - `experience-scan.ts` で使用する分類器を差し替え。
 - `experience_candidates.expires_at` = 作成から3日後。
-- 仕様: `docs/spec/experience-candidate-classifier.md`
-- 実装詳細: `docs/imp/impl-tonight.md` タスク③
+- 仕様: `docs/spec/behavior-sleep.md`
+- 実装詳細: `docs/imp/imp-instructions-20260503.md` タスク③
 
 ### Phase 4: 体験候補
 
@@ -115,3 +115,8 @@
 - Misskey Drive upload。
 - 投稿時の `fileIds` 添付。
 - 直近使用履歴による連続使用回避。
+
+
+
+
+
