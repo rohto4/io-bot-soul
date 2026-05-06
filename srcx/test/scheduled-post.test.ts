@@ -113,6 +113,46 @@ describe("runScheduledPostDraw", () => {
     });
   });
 
+  it("rounds probability skip log numbers", async () => {
+    const db = await createTestDb();
+    const logger = createLogger();
+    const client = {
+      createNote: vi.fn(),
+      getHomeTimeline: vi.fn(async () => []),
+      getUserNotes: vi.fn(async () => [])
+    };
+
+    await db.run(
+      `
+      INSERT INTO posts (note_id, posted_at, kind, text, visibility, generated_reason, created_at)
+      VALUES (@noteId, @postedAt, 'normal', 'recent', 'home', 'test', @postedAt)
+      `,
+      {
+        noteId: "recent-note",
+        postedAt: "2026-05-01T00:20:00.000Z"
+      }
+    );
+
+    await runScheduledPostDraw({
+      db,
+      logger,
+      client,
+      at: "2026-05-01T00:29:59.938Z",
+      enabled: true,
+      random: () => 0.6910278688700067
+    });
+
+    expect(client.createNote).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith("scheduledPost.skip", {
+      at: "2026-05-01T00:29:59.938Z",
+      reason: "probability",
+      latestPostedAt: "2026-05-01T00:20:00.000Z",
+      elapsedMinutes: 10,
+      probability: 0.15,
+      draw: 0.691
+    });
+  });
+
   it("can post by probability after the hard minimum interval", async () => {
     const db = await createTestDb();
     const logger = createLogger();

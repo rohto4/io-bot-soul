@@ -75,32 +75,35 @@ docker compose logs -f bot        # ログで起動確認
 
 ### 現在値の確認
 
-```powershell
-docker compose exec bot sqlite3 /app/data/bot.db \
-  "SELECT category, setting_key, setting_value, description FROM m_runtime_setting ORDER BY category, setting_key;"
+Neon（PostgreSQL）コンソールまたは任意のPostgreSQLクライアントで実行する。
+
+```sql
+SELECT category, setting_key, setting_value, description FROM m_runtime_setting ORDER BY category, setting_key;
 ```
 
 ### 値を変更する
 
-```powershell
-docker compose exec bot sqlite3 /app/data/bot.db \
-  "UPDATE m_runtime_setting SET setting_value='値', updated_at=datetime('now') WHERE setting_key='キー名';"
+```sql
+UPDATE m_runtime_setting SET setting_value='値', updated_at=NOW() WHERE setting_key='キー名';
 ```
 
 ### よく使う変更
 
 ```sql
 -- beta-test1 モード ON（引用RN 40%・通常ノート経過時間5倍）
-UPDATE m_runtime_setting SET setting_value='true', updated_at=datetime('now') WHERE setting_key='BETA_TEST1_ENABLED';
+UPDATE m_runtime_setting SET setting_value='true', updated_at=NOW() WHERE setting_key='BETA_TEST1_ENABLED';
 
 -- beta-test1 モード OFF（通常モードに戻す）
-UPDATE m_runtime_setting SET setting_value='false', updated_at=datetime('now') WHERE setting_key='BETA_TEST1_ENABLED';
+UPDATE m_runtime_setting SET setting_value='false', updated_at=NOW() WHERE setting_key='BETA_TEST1_ENABLED';
 
 -- デバッグファイル出力を止める
-UPDATE m_runtime_setting SET setting_value='false', updated_at=datetime('now') WHERE setting_key='DEBUG_STATUS';
+UPDATE m_runtime_setting SET setting_value='false', updated_at=NOW() WHERE setting_key='DEBUG_STATUS';
 
 -- AI失敗時にテンプレートfallbackに切り替える（投稿が止まる時）
-UPDATE m_runtime_setting SET setting_value='false', updated_at=datetime('now') WHERE setting_key='AI_SKIP_POST_ON_AI_FAILURE';
+UPDATE m_runtime_setting SET setting_value='false', updated_at=NOW() WHERE setting_key='AI_SKIP_POST_ON_AI_FAILURE';
+
+-- Chutesモデルを変更する
+UPDATE m_runtime_setting SET setting_value='モデルID', updated_at=NOW() WHERE setting_key='CHUTES_MODEL_TEXT';
 ```
 
 ---

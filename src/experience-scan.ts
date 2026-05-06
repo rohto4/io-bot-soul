@@ -2,7 +2,7 @@ import type { DbClient } from "./db/client.js";
 import type { Logger } from "./logger.js";
 import type { MisskeyClient } from "./misskey/client.js";
 import { runTlScanPassive } from "./tl-scan.js";
-import { classifyExperienceCandidate } from "./ai/classify-experience-candidate.js";
+import { classifyExperienceCandidateBatch } from "./ai/classify-experience-candidate.js";
 import { passesLightweightFilter } from "./safety-filter.js";
 import type { RuntimeSettings } from "./runtime-settings.js";
 
@@ -35,25 +35,29 @@ export async function runExperienceScan(options: {
   let saved = 0;
   let skipped = 0;
 
-  // TLの各ノートに対して軽量フィルタ → AI安全判定
-  for (const summary of summaries) {
-    if (!passesLightweightFilter(summary)) {
-      options.logger.info("experienceScan.skip", { at: options.at, reason: "lightweight_filter", summary: summary.slice(0, 30) });
-      skipped++;
-      continue;
-    }
+  // 軽量フィルタを先に通す
+  const candidates = summaries.filter(s => {
+    if (passesLightweightFilter(s)) return true;
+    options.logger.info("experienceScan.skip", { at: options.at, reason: "lightweight_filter", summary: s.slice(0, 30) });
+    skipped++;
+    return false;
+  });
 
-    const safe = await classifyExperienceCandidate({
-      settings: options.settings,
-      text: summary,
-      chutesApiKey: options.chutesApiKey,
-      openaiApiKey: options.openaiApiKey,
-      logger: options.logger,
-    });
+  // AI安全判定を一括で実行
+  const safeFlags = candidates.length > 0
+    ? await classifyExperienceCandidateBatch({
+        settings: options.settings,
+        texts: candidates,
+        chutesApiKey: options.chutesApiKey,
+        openaiApiKey: options.openaiApiKey,
+        logger: options.logger,
+      })
+    : [];
 
-    if (safe) {
-      const expiresAt = new Date(new Date(options.at).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(new Date(options.at).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
 
+  for (let i = 0; i < candidates.length; i++) {
+    if (safeFlags[i]) {
       await options.db.run(
         `INSERT INTO experience_candidates (
            source_note_id, source_user_id, picked_at, candidate_type,
@@ -64,11 +68,11 @@ export async function runExperienceScan(options: {
            @summary, 'ok', 'pending', @expiresAt, @createdAt
          )`,
         {
-          sourceNoteId: `tl_${options.at}_${saved}`, // 仮のID
+          sourceNoteId: `tl_${options.at}_${saved}`,
           sourceUserId: null,
           pickedAt: options.at,
-          summary,
-          expiresAt,   // 追加
+          summary: candidates[i],
+          expiresAt,
           createdAt: options.at,
         }
       );

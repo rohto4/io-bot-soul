@@ -41,9 +41,10 @@ export async function pickQuoteCandidate(options: {
 
   // 2. 直近N回の引用RNユーザーを除外リストに（同じユーザーへの連続引用を防ぐ）
   const recentlyQuoted = await options.db.all<{ source_user_id: string }>(
-    `SELECT DISTINCT source_user_id FROM experience_logs
+    `SELECT source_user_id FROM experience_logs
      WHERE experience_type = 'quote_renote' AND source_user_id IS NOT NULL
-     ORDER BY occurred_at DESC LIMIT ${recentExcludeCount}`
+     GROUP BY source_user_id
+     ORDER BY MAX(occurred_at) DESC LIMIT ${recentExcludeCount}`
   );
   const excludedUserIds = new Set(recentlyQuoted.map(r => r.source_user_id));
 

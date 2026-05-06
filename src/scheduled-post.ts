@@ -68,6 +68,11 @@ const defaultProbabilityPoints: ProbabilityPoint[] = [
   { elapsedMinutes: 60, probability: 0.95 },
 ];
 
+function roundLogNumber(value: number, digits = 3): number {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
 export function calculateScheduledPostProbability(input: {
   elapsedMinutes: number;
   minIntervalMinutes: number;
@@ -136,7 +141,16 @@ function drawAction(
     const draw = rand();
 
     if (draw >= probability) {
-      return { tag: "skip", reason: "probability", meta: { latestPostedAt: latestNormal.posted_at, elapsedMinutes, probability, draw } };
+      return {
+        tag: "skip",
+        reason: "probability",
+        meta: {
+          latestPostedAt: latestNormal.posted_at,
+          elapsedMinutes: roundLogNumber(elapsedMinutes, 2),
+          probability: roundLogNumber(probability),
+          draw: roundLogNumber(draw),
+        },
+      };
     }
   }
 

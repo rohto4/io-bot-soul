@@ -10,12 +10,15 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "scheduled:post-draw": "tsx src/scheduled.ts post-draw",
     "scheduled:post-draw:prod": "node dist/scheduled.js post-draw",
+    "emoji-setup": "tsx src/emoji-setup.ts",
+    "emoji-setup:prod": "node dist/emoji-setup.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
     "dotenv": "^16.5.0",
+    "image-size": "^1.2.1",
     "pg": "^8.20.0",
     "zod": "^3.24.4"
   },

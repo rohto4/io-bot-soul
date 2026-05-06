@@ -45,15 +45,27 @@ export function computeNextSleepAt(settings: RuntimeSettings, now: Date, rand: (
 }
 
 export function computeNextWakeAt(settings: RuntimeSettings, now: Date, rand: () => number): string {
-  // 翌日の曜日の WAKE_TIME を使う
-  const dowTomorrow = (jstDayOfWeek(now) + 1) % 7;
-  const key = DOW_KEYS[dowTomorrow]!;
-  const timeStr = readStringSetting(settings, `WAKE_TIME_${key}`, "07:30");
+  const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const jitter = readIntegerSetting(settings, "SLEEP_SCHEDULE_JITTER_MINUTES", 30);
-  // 翌日の日付を baseDate にする
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  jst.setDate(jst.getDate() + 1);
-  const tomorrowJst = jst.toISOString().slice(0, 10);
-  // WAKE_TIME は朝なので originalHours<6 ではない → 同日扱いで正しく動作
-  return buildTimestamp(tomorrowJst, timeStr, jitter, rand);
+
+  // 今日の起床時刻（jitterなし）が現在より未来なら今日を使う。
+  // 再起動などで wake_at が失われた場合に翌々日になるのを防ぐ。
+  const todayDow = jstDayOfWeek(now);
+  const todayKey = DOW_KEYS[todayDow]!;
+  const todayTimeStr = readStringSetting(settings, `WAKE_TIME_${todayKey}`, "07:30");
+  const todayJst = jstNow.toISOString().slice(0, 10);
+  const [todayH, todayM] = todayTimeStr.split(":").map(Number);
+  const todayWakeUtc = new Date(`${todayJst}T${String(todayH ?? 7).padStart(2, "0")}:${String(todayM ?? 30).padStart(2, "0")}:00+09:00`);
+
+  if (todayWakeUtc > now) {
+    return buildTimestamp(todayJst, todayTimeStr, jitter, rand);
+  }
+
+  // 今日の起床時刻が過ぎていたら翌日を使う（通常の就寝フロー）
+  const dowTomorrow = (todayDow + 1) % 7;
+  const tomorrowKey = DOW_KEYS[dowTomorrow]!;
+  const tomorrowTimeStr = readStringSetting(settings, `WAKE_TIME_${tomorrowKey}`, "07:30");
+  const jstTomorrow = new Date(jstNow.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowJst = jstTomorrow.toISOString().slice(0, 10);
+  return buildTimestamp(tomorrowJst, tomorrowTimeStr, jitter, rand);
 }

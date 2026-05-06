@@ -260,4 +260,33 @@
 - `npm run build`: 成功。
 - `docker compose up -d --build`: 成功。
 
+## 2026-05-05 カスタム絵文字分類スクリプト作成
+
+- `scripts/emoji_sort_step1.py` を追加。
+  - `data/images` 配下の分類元フォルダを走査し、静止画を `50-work`、アニメーションを `4_rank-d`、判別不能ファイルを `99-bk` へ移動する。
+  - `.bin` 拡張子でも PNG / GIF / WebP / AVIF / SVG のヘッダ判定を行う。
+- `scripts/emoji_sort_step2.py` を追加。
+  - `50-work` 配下の未分類画像を Chutes の Vision モデルで `text` / `illust-text` / `illust` にバッチ分類する。
+  - バッチ結果は `data/images/50-work/_logs/step2/*.csv` に保存する。
+- `scripts/emoji_sort_step3.py` を追加。
+  - `50-work/text` / `illust-text` / `illust` を、かなめ向けの用途基準で `1-rank-a` / `2-rank-b` / `3-rank-c` / `99-bk` / `90-trush` に分類する。
+  - A/B/C はコピー、BK/TRUSH は移動で反映する。
+- 共通処理 `scripts/emoji_sorter_common.py` を追加。
+  - OpenAI互換 Vision API 呼び出し、CSV抽出、フォルダ階層維持の移動・コピー、簡易メディア判定を集約した。
+- `tests/test_emoji_sorter.py` を追加し、`python -m unittest discover -s tests -p "test_*.py"` で4件通過。
+- `python -m py_compile scripts/emoji_sorter_common.py scripts/emoji_sort_step1.py scripts/emoji_sort_step2.py scripts/emoji_sort_step3.py` で構文確認済み。
+
+## 2026-05-05 カスタム絵文字分類 Step2 再開・並列化対応
+
+- `scripts/emoji_sort_step2.py` を全面改修。
+  - `classify` と `apply` を分離した。
+  - `data/images/50-work/_logs/step2/<run-name>/manifest.csv` を基準に、再開可能な batch 管理へ変更した。
+  - `batches/*.csv` が存在する batch は再実行時に skip する。
+  - `errors/*.raw.txt` / `errors/*.error.txt` に失敗レスポンスを保存する。
+- Step2 の AI 分類は `--workers` で batch 単位の並列実行が可能になった。
+  - 1 batch 内は `--request-image-limit` 件ごとに分割する。
+  - ファイル移動は `apply` モードで後段に分離し、並列 classify 中に移動競合しない構成にした。
+- `scripts/emoji_sorter_common.py` の `OpenAICompatibleVisionClient` で、`_classify_with_model` / `_sleep_for_rate_limit` の所属を修正した。
+- `tests/test_emoji_sorter.py` に item_id 正規化の回帰テストを追加し、`python -m unittest discover -s tests -p "test_*.py"` で5件通過。
+
 

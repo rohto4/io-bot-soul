@@ -27,3 +27,9 @@ docker compose build --no-cache
 docker compose up -d
 
 今回のようなコード更新なら、最初の2行でOKです。
+
+
+docker compose logs -f bot | grep -E '"message":"(scheduledPost\.action|scheduledPost\.posted|quoteRenote\.posted|scheduledPost\.experienceCandidate|postDraw\.tick)"'
+
+docker compose logs -f bot | grep -E '"message":"\.ai"'
+

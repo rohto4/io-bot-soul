@@ -214,13 +214,13 @@ flowchart TD
 ```sql
 INSERT INTO m_runtime_setting (setting_key, setting_value, value_type, category, description, updated_at)
 VALUES
-  ('QUOTE_RENOTE_PROBABILITY', '0.20', 'number', 'gacha', 'Probability to quote renote directly.', datetime('now')),
-  ('TL_REFERENCE_PROBABILITY', '0.50', 'number', 'gacha', 'Normal post TL reference probability (within normal posts).', datetime('now')),
-  ('TL_VIBE_RATIO', '0.75', 'number', 'gacha', 'Within TL reference, ratio of vibe mention.', datetime('now')),
-  ('TL_MENTION_RATIO', '0.25', 'number', 'gacha', 'Within TL reference, ratio of specific mention.', datetime('now')),
-  ('EXPERIENCE_MEMORY_ENABLED', 'true', 'boolean', 'experience_memory', 'Enable experience memory influence.', datetime('now')),
-  ('EXPERIENCE_MEMORY_SAMPLE_COUNT', '50', 'integer', 'experience_memory', 'Number of experience_logs to sample.', datetime('now')),
-  ('EXPERIENCE_MEMORY_PROMPT_WEIGHT', '50', 'integer', 'experience_memory', 'Influence strength 0-100.', datetime('now'));
+  ('QUOTE_RENOTE_PROBABILITY', '0.20', 'number', 'gacha', 'Probability to quote renote directly.', NOW()),
+  ('TL_REFERENCE_PROBABILITY', '0.50', 'number', 'gacha', 'Normal post TL reference probability (within normal posts).', NOW()),
+  ('TL_VIBE_RATIO', '0.75', 'number', 'gacha', 'Within TL reference, ratio of vibe mention.', NOW()),
+  ('TL_MENTION_RATIO', '0.25', 'number', 'gacha', 'Within TL reference, ratio of specific mention.', NOW()),
+  ('EXPERIENCE_MEMORY_ENABLED', 'true', 'boolean', 'experience_memory', 'Enable experience memory influence.', NOW()),
+  ('EXPERIENCE_MEMORY_SAMPLE_COUNT', '50', 'integer', 'experience_memory', 'Number of experience_logs to sample.', NOW()),
+  ('EXPERIENCE_MEMORY_PROMPT_WEIGHT', '50', 'integer', 'experience_memory', 'Influence strength 0-100.', NOW());
 ```
 
 ### posts.kind の扱い

@@ -66,12 +66,12 @@ ORDER BY category, setting_key;
 
 -- 例: beta-test1モードを有効化
 UPDATE m_runtime_setting
-SET setting_value = 'true', updated_at = datetime('now')
+SET setting_value = 'true', updated_at = NOW()
 WHERE setting_key = 'BETA_TEST1_ENABLED';
 
 -- 例: 引用RN確率を20%に変更（通常モード）
 UPDATE m_runtime_setting
-SET setting_value = '0.20', updated_at = datetime('now')
+SET setting_value = '0.20', updated_at = NOW()
 WHERE setting_key = 'QUOTE_RENOTE_PROBABILITY';
 ```
 
@@ -116,9 +116,9 @@ V2では、各アクションを独立した確率で直接抽選します。
 
 **beta-test1モードの切り替え:**
 ```sql
-UPDATE m_runtime_setting SET setting_value = 'true',  updated_at = datetime('now') WHERE setting_key = 'BETA_TEST1_ENABLED';
+UPDATE m_runtime_setting SET setting_value = 'true',  updated_at = NOW() WHERE setting_key = 'BETA_TEST1_ENABLED';
 -- または無効化
-UPDATE m_runtime_setting SET setting_value = 'false', updated_at = datetime('now') WHERE setting_key = 'BETA_TEST1_ENABLED';
+UPDATE m_runtime_setting SET setting_value = 'false', updated_at = NOW() WHERE setting_key = 'BETA_TEST1_ENABLED';
 ```
 
 ---

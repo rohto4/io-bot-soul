@@ -30,56 +30,10 @@
 
 ## 参考リンク
 
-- Misskey API overview: https://misskey-hub.net/en/docs/for-developers/api/
-  - Misskey APIはbotなどのapplication開発に使える。
-  - Streaming APIによりリアルタイムapplicationを作れる。
-- Misskey Reactions: https://misskey-hub.net/en/docs/for-users/features/reaction/
-  - 投稿時に受け付けるリアクション種別を制限できる。
-  - `Likes only` により❤のみ受け付けられる。
-- Misskey Streaming API: https://misskey-hub.net/en/docs/for-developers/api/streaming/
-  - Streaming APIはMisskeyサーバーへWebSocket接続する。
-  - 接続URL形式は `wss://{host}/streaming?i={token}`。
-  - タイムラインや通知などのイベントを受けるには、WebSocket接続後にchannelへ接続する。
-- misskey.io API docs: https://api-doc.misskey.io/
-  - `notes/create`、`i/notifications`、`notes/mentions` などのendpoint確認に使う。
-- misskey.io `notes/create`: https://api-doc.misskey.io/api-7254018
-  - `notes/create` は `write:notes` permissionが必要。
-  - noteレスポンスに `reactionAcceptance` が存在する。
-- misskey.io `i/notifications`: https://api-doc.misskey.io/api-7253978
-  - `read:notifications` permissionが必要。
-  - 通知、リプライ、リアクション確認の初期pollingに使う。
-- misskey.io `notes/reactions`: https://api-doc.misskey.io/api-7254030
-  - noteに付いたリアクション一覧の取得に使う。
-  - ピン留め同意ノートへの❤確認に使う。
-- Misskey access token docs: https://misskey-hub.net/en/docs/for-developers/api/token/
-  - API tokenはJSON bodyの `i` として渡す。
-- GitHub Actions limits: https://docs.github.com/en/enterprise-cloud@latest/actions/reference/limits
-  - GitHub-hosted runnerのjob実行時間は最大6時間。
-  - self-hosted runnerのjob実行時間は最大5日。
-- GitHub Actions checkout: https://github.com/actions/checkout
-  - workflow上でrepositoryをcheckoutする公式Action。
-  - `v6` はNode 24 runtime対応版として参照する。
-- GitHub Actions setup-node: https://github.com/actions/setup-node
-  - workflow上でNode.js環境を用意する公式Action。
-  - `v6` はNode 24 runtime対応版として参照する。
-- Vercel Functions limits: https://vercel.com/docs/functions/limitations
-  - Vercel Functionsには実行時間上限がある。
-  - Hobbyは最大300秒、Pro/Enterpriseは最大800秒。
-- Vercel maximum duration config: https://vercel.com/docs/functions/configuring-functions/duration
-  - `maxDuration` で関数ごとの実行時間上限を設定できる。
-- Vercel Cron Jobs: https://vercel.com/docs/cron-jobs
-  - CronはVercel FunctionsへのHTTP GETで実行される。
-  - Cron式のtimezoneはUTC。
-- Vercel Managing Cron Jobs: https://vercel.com/docs/cron-jobs/manage-cron-jobs
-  - `CRON_SECRET` による保護が推奨される。
-  - Cronのduration limitはVercel Functionsと同じ。
-  - 重複実行や並行実行に備えてlockと冪等性が必要。
-  - HobbyのCronは1日1回まで、指定時刻の時間内のどこかで起動される。
-- Misskey.io Terms: https://support.misskey.io/hc/ja/articles/6564530842767-%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84
-  - 自動投稿が主となるBotはBotフラグが必要。
-  - Bot管理者のmisskey.ioアカウントを概要欄またはピン留めなどに記載する必要がある。
-  - ユーザー操作によりリプライや公開投稿を行うBotは、レートリミットと不適切語フィルタが必要。
-  - 連続した公開投稿でタイムラインを埋めないこと。
+- Misskey 開発者向けドキュメント: https://misskey-hub.net/en/docs/for-developers/
+- Misskey API リファレンス: https://api-doc.misskey.io/
+- Misskey カスタム絵文字: https://misskey-hub.net/en/docs/for-users/features/custom-emoji/
+- Misskey.io 利用規約: https://support.misskey.io/hc/ja/articles/6564530842767-%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84
 
 ## 2026-05-02 追記: OpenCode + oh-my-openagent + Chutes グローバル設定
 
@@ -120,10 +74,7 @@
 ## 未決事項
 
 - 常時オンライン表示がMisskey上でどの条件により維持されるか。
-- botが必要とするリアルタイム性。
-- 投稿頻度、返信頻度、通知監視の要否。
-- DBや永続状態の要否。
-- デプロイ先の無料枠、有料許容、運用負荷。
+- Streaming APIへの移行タイミング（現状は1分polling）。
 
 ## 2026-04-29 追記: リアルタイム性とローカル常駐前提
 
@@ -267,4 +218,46 @@
 - AI client実装では、providerごとにtoken上限パラメータ名を切り替える。
 - `message.content` が空、`null`、JSON parse不能、または `finish_reason = length` の場合は、そのproviderの応答を失敗扱いにしてfallbackする。
 - `message.reasoning_content` はログや投稿文には使わない。
+
+## 2026-05-04 追記: GitHub Actions廃止・実行基盤の確定
+
+### 変更
+
+- `scheduled-post-draw` GitHub Actions ワークフローを廃止。
+- 投稿抽選（`drawPostOnce`）はDocker常駐プロセス（`src/main.ts`）の内部タイマーで `POST_DRAW_INTERVAL_SECONDS`（デフォルト300秒）ごとに実行する。
+- TL観測・体験候補収集も同じDocker常駐プロセスの内部タイマーで動く。
+- GitHub Actions・Vercel は不採用確定。参考リンクから削除済み。
+
+### 確定した実行基盤
+
+| 役割 | 実体 | 起動元 |
+|---|---|---|
+| 常駐（polling・投稿抽選・TL観測） | `src/main.ts` | Docker Compose |
+| ワンタイムセットアップ（絵文字DL・選別） | `src/emoji-setup.ts` | 手動 `npm run emoji-setup` |
+| DBマイグレーション | `src/db/migrate.ts` | 手動 `npm run db:migrate` |
+
+### PostgreSQL互換性の注意点（2026-05-04 発見）
+
+`SELECT DISTINCT` に `ORDER BY` を組み合わせる場合、`ORDER BY` に指定するカラムが `SELECT` 句に含まれていないとPostgreSQL（Neon）でエラーになる。SQLiteでは動作するため発見が遅れやすい。
+
+```sql
+-- NG: PostgreSQLでエラー
+SELECT DISTINCT source_user_id FROM experience_logs ORDER BY occurred_at DESC LIMIT 5
+
+-- OK: GROUP BY + MAX() で書き換える
+SELECT source_user_id FROM experience_logs
+GROUP BY source_user_id ORDER BY MAX(occurred_at) DESC LIMIT 5
+```
+
+新しいクエリを書くときは `SELECT DISTINCT` + 別カラム `ORDER BY` の組み合わせを避ける。
+またドキュメントのSQL例は `NOW()` に統一する（`datetime('now')` はSQLite専用）。
+
+### カスタム絵文字セットアップ（2026-05-04 追加）
+
+`src/emoji-setup.ts` を追加。misskey.io の全カスタム絵文字（約12,000件）を一括取得・ダウンロード・AI選別してデッキ（`m_emoji_deck`）を構築するワンタイムツール。
+
+- 画像保存先: `data/images/{カテゴリ階層}/` （カテゴリ `"A / B (:N)"` → `images/A/B/`）
+- テキスト絵文字除外: `.svg` 拡張子または横幅/縦幅 > 2.5 の画像
+- AI選別: 200件ずつバッチ処理、Chutes primary / OpenAI fallback
+- Chutesの `moonshotai/Kimi-K2.5-TEE` は推論トークンを消費するため、リスト選別のような単純分類には重すぎる。タイムアウトを120秒以上にするか、軽量モデルを選ぶこと。
 

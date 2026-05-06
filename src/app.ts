@@ -102,6 +102,12 @@ export function createBotApp(options: {
       return;
     }
 
+    const botState = await options.db.get<{ sleeping: number }>("SELECT sleeping FROM bot_state WHERE id = 1");
+    if ((botState?.sleeping ?? 0) === 1) {
+      options.logger.info("experienceScan.skip", { at, reason: "sleeping" });
+      return;
+    }
+
     const settings = await loadRuntimeSettings(options.db);
     await runExperienceScan({
       db: options.db,

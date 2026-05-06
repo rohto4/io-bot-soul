@@ -78,6 +78,7 @@ export async function callAiWithFallback(
         onLog("ai.done", { provider: "chutes", model: opts.chutesModel });
         return text;
       }
+      onLog("ai.nullResponse", { provider: "chutes", model: opts.chutesModel });
     } catch (error: unknown) {
       onLog("ai.error", { provider: "chutes", error: String(error) });
     }

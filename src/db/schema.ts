@@ -222,6 +222,23 @@ CREATE INDEX IF NOT EXISTS idx_posts_kind_time ON posts(kind, posted_at);
 CREATE INDEX IF NOT EXISTS idx_post_assets_post ON post_assets(post_note_id);
 CREATE INDEX IF NOT EXISTS idx_observations_status ON tl_observations(status, observed_at);
 CREATE INDEX IF NOT EXISTS idx_rate_limit_time ON rate_limit_events(event_type, event_at);
+
+CREATE TABLE IF NOT EXISTS m_emoji_deck (
+  name         TEXT PRIMARY KEY,
+  aliases      TEXT,
+  category     TEXT,
+  url          TEXT NOT NULL,
+  local_path   TEXT,
+  width        INTEGER,
+  height       INTEGER,
+  is_text_only INTEGER NOT NULL DEFAULT 0,
+  ai_selected  INTEGER NOT NULL DEFAULT 0,
+  tags         TEXT,
+  enabled      INTEGER NOT NULL DEFAULT 1,
+  fetched_at   TEXT,
+  created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_emoji_deck_selected ON m_emoji_deck(ai_selected, enabled);
 `;
 
 export function schemaSql(provider: DatabaseProvider): string {
